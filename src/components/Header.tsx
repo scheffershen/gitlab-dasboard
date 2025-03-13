@@ -13,26 +13,25 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-white dark:bg-gray-800 shadow">
-      <div className="container mx-auto px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center flex-1 gap-4">
-            <h1 className="text-2xl font-semibold text-gray-800 dark:text-white">
-              Dashboard
-            </h1>
-            <SearchBar />
-          </div>
-          <button
-            onClick={toggleDarkMode}
-            className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-          >
-            {isDark ? (
-              <SunIcon className="h-5 w-5 text-gray-800 dark:text-white" />
-            ) : (
-              <MoonIcon className="h-5 w-5 text-gray-800 dark:text-white" />
-            )}
-          </button>
+    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div className="h-16 px-4 flex items-center justify-between">
+        <div className="flex items-center flex-1 gap-4">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+            Dashboard
+          </h1>
+          {/*<SearchBar />*/}
         </div>
+        {/*<button
+          onClick={toggleDarkMode}
+          className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+          aria-label="Toggle dark mode"
+        >
+          {isDark ? (
+            <SunIcon className="h-5 w-5 text-gray-800 dark:text-white" />
+          ) : (
+            <MoonIcon className="h-5 w-5 text-gray-800 dark:text-white" />
+          )}
+        </button>*/}
       </div>
     </header>
   );

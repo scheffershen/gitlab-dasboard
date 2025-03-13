@@ -84,11 +84,11 @@ export default async function DashboardPage({
         </div>
 
         {/* Activity Chart */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+        {/*<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
           <Suspense fallback={<div className="h-64 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>}>
             <ActivityChart data={activities} />
           </Suspense>
-        </div>
+        </div>*/}
 
         {/* Recent Activity List */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">

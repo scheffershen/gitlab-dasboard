@@ -16,21 +16,100 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Gitlab api 
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Reference:  https://docs.gitlab.com/api/rest/
 
-## Learn More
+**Get all projects**
 
-To learn more about Next.js, take a look at the following resources:
+```php
+    $response = $this->httpClient->request('GET', "{$this->gitlabUrl}/projects", [
+        'headers' => [
+            'PRIVATE-TOKEN' => $this->gitlabToken
+        ],
+        'query' => [
+            'membership' => true,
+            'per_page' => 100
+        ]
+    ]);
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+    return $response->toArray();
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Get All users**
 
-## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```php
+    $response = $this->httpClient->request('GET', "{$this->gitlabUrl}/users", [
+        'headers' => [
+            'PRIVATE-TOKEN' => $this->gitlabToken
+        ],
+        'query' => [
+            'per_page' => 100
+        ]
+    ]);
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+    return $response->toArray();
+```
+
+**Get Project activities**
+
+```php
+    $response = $this->httpClient->request('GET', "{$this->gitlabUrl}/projects/{projectId}/activities", [
+        'headers' => [
+            'PRIVATE-TOKEN' => $this->gitlabToken
+        ],
+        'on_success' => function ($response) use ($projectId) {
+            $data = $response->toArray();
+        }           
+    ]);
+
+    return $response->toArray();
+```
+
+**Get recents commits by project**
+
+```php
+    $response = $this->httpClient->request('GET', "{$this->gitlabUrl}/projects/{$projectId}/repository/commits", [
+        'headers' => [
+            'PRIVATE-TOKEN' => $this->gitlabToken,
+            'Accept' => 'application/json'  // Forcer JSON pour plus de rapidité
+        ],
+        'query' => array_merge($query, [
+            'per_page' => 50,   // Limiter à 50 pour une réponse très rapide
+            'all' => true       // Conserver les commits de toutes les branches
+        ]),
+        'timeout' => 3.0        // Timeout court pour éviter les blocages
+    ]);
+```    
+
+**Get events**
+
+```php
+    $eventsResponse = $this->httpClient->request('GET', "$gitlabUrl/api/v4/events", [
+        'headers' => [
+            'Authorization' => "Bearer $gitlabToken",
+        ],
+        'query' => [
+            'per_page' => 5,
+        ],
+        'timeout' => 5,
+    ]);
+```
+
+```php
+    $response = $this->httpClient->request('GET', "$gitlabUrl/api/v4/projects/$projectId/repository/commits/$commitId", [
+        'headers' => [
+            'Authorization' => "Bearer $gitlabToken",
+        ],
+        'timeout' => 5,
+    ]);
+
+    $commitDetail = json_decode($response->getContent(), true);
+
+    if ($commitDetail && isset($commitDetail['stats']) && is_array($commitDetail['stats'])) {
+        return $commitDetail['stats'];
+    }
+
+    return $defaultStats;
+```                

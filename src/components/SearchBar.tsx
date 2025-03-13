@@ -67,7 +67,7 @@ export default function SearchBar() {
   return (
     <div ref={searchRef} className="relative w-full max-w-lg">
       <div className="relative">
-        <MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
+        {/*<MagnifyingGlassIcon className="pointer-events-none absolute left-4 top-3.5 h-5 w-5 text-gray-400" /> */}
         <input
           type="text"
           className="h-12 w-full rounded-lg border border-gray-200 pl-11 pr-4 text-sm text-gray-800 
