@@ -1,27 +1,36 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+.react-calendar-heatmap text {
+  font-size: 10px;
+  fill: #aaa;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.react-calendar-heatmap .color-empty {
+  fill: #eeeeee;
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+.dark .react-calendar-heatmap .color-empty {
+  fill: #374151;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+.react-calendar-heatmap .color-scale-0 {
+  fill: #9be9a8;
 }
+
+.react-calendar-heatmap .color-scale-1 {
+  fill: #40c463;
+}
+
+.react-calendar-heatmap .color-scale-2 {
+  fill: #30a14e;
+}
+
+.react-calendar-heatmap .color-scale-3 {
+  fill: #216e39;
+}
+
+.react-calendar-heatmap .color-scale-4 {
+  fill: #0a4524;
+}
+
+.dark .react-calendar-heatmap text {
+  fill: #9ca3af;
+} 
