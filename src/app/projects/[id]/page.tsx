@@ -14,9 +14,11 @@ interface Commit {
   created_at: string;
 }
 
-export default function ProjectDetailPage({ params }: { params: { id: string } }) {
+export default function Page({ params }: { params: { id: string } }) {
   const [commits, setCommits] = useState<Commit[]>([]);
   const [projectName, setProjectName] = useState<string>('');
+  const [totalCommits, setTotalCommits] = useState<number>(0);
+  const [showJsonModal, setShowJsonModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -31,9 +33,15 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
           'PRIVATE-TOKEN': process.env.NEXT_PUBLIC_GITLAB_TOKEN
         }
       });
-  
-      const response = await api.get(`/api/v4/projects/${params.id}`);
+
+      const response = await api.get(`/api/v4/projects/${params.id}`, {
+        params: {
+          statistics: true
+        }
+      });
+      
       setProjectName(response.data.name);
+      setTotalCommits(response.data.statistics?.commit_count || 0);
     } catch (err) {
       console.error('Error fetching project details:', err);
     }
@@ -84,12 +92,17 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">
-        {projectName ? `${projectName} Commits` : 'Project Commits'}
-      </h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">
+          {projectName ? `${projectName}` : 'Project Commits'}
+        </h1>
+        <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg">
+          <span className="text-lg font-semibold">Total Commits: {totalCommits}</span>
+        </div>
+      </div>
 
       {loading ? (
-        <div className="animate-pulse space-y-4">
+        <div className="animate-pulse">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="h-20 bg-gray-200 rounded"></div>
           ))}
@@ -98,7 +111,7 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
         <div className="text-red-500">{error}</div>
       ) : (
         <>
-          <div className="space-y-4">
+          <div className="space-y-6">
             {commits.map((commit) => (
               <div key={commit.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
                 <div className="flex justify-between items-start">
@@ -109,17 +122,19 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
                     {commit.short_id}
                   </code>
                 </div>
-                <div className="mt-2 text-sm text-gray-500">
-                  <span>{commit.author_name}</span>
-                  <span className="mx-2">•</span>
-                  <span>{new Date(commit.created_at).toLocaleDateString()}</span>
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-500">
+                    <span>{commit.author_name}</span>
+                    <span className="mx-2">•</span>
+                    <span>{new Date(commit.created_at).toLocaleDateString()}</span>
+                  </div>
+                  <button
+                    onClick={() => setSelectedCommit(commit.id)}
+                    className="text-blue-500 hover:underline text-sm"
+                  >
+                    View Changes
+                  </button>
                 </div>
-                <button
-                  onClick={() => setSelectedCommit(commit.id)}
-                  className="text-blue-500 hover:underline text-sm ml-2"
-                >
-                  View Changes
-                </button>
               </div>
             ))}
           </div>
@@ -150,7 +165,36 @@ export default function ProjectDetailPage({ params }: { params: { id: string } }
           />
         </>
       )}
-      
+      <div className="mt-8">
+        <button
+          onClick={() => setShowJsonModal(true)}
+          className="text-blue-500 hover:underline text-sm"
+        >
+          View Raw JSON Data
+        </button>
+      </div>
+
+      {/* JSON Modal */}
+      {showJsonModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
+              <h2 className="text-lg font-semibold">Raw JSON Data</h2>
+              <button
+                onClick={() => setShowJsonModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 overflow-auto flex-1">
+              <pre className="text-sm">
+                {JSON.stringify(commits, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}      
     </div>
   );
 }

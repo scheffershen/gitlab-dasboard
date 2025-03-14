@@ -35,7 +35,7 @@ ChartJS.register(
   ArcElement
 );
 
-export default function DebugPage() {
+export default function Page() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

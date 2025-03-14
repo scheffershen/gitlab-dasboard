@@ -35,8 +35,9 @@ ChartJS.register(
   ArcElement
 );
 
-export default function DebugPage() {
+export default function Page() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [showJsonModal, setShowJsonModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -230,11 +231,35 @@ export default function DebugPage() {
       )}
 
       <div className="mt-8">
-        <h2 className="text-lg font-semibold mb-2">Raw JSON Data</h2>
-        <pre className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-auto max-h-96">
-          {JSON.stringify(projects, null, 2)}
-        </pre>
+        <button
+          onClick={() => setShowJsonModal(true)}
+          className="text-blue-500 hover:underline text-sm"
+        >
+          View Raw JSON Data
+        </button>
       </div>
+
+      {/* JSON Modal */}
+      {showJsonModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
+              <h2 className="text-lg font-semibold">Raw JSON Data</h2>
+              <button
+                onClick={() => setShowJsonModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 overflow-auto flex-1">
+              <pre className="text-sm">
+                {JSON.stringify(projects, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-} 
+}

@@ -14,7 +14,7 @@ interface Commit {
   created_at: string;
 }
 
-export default function ProjectDetailPage({ params }: { params: { id: string } }) {
+export default function Page({ params }: { params: { id: string } }) {
   const [commits, setCommits] = useState<Commit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
