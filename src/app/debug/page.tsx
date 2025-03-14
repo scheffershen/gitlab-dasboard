@@ -1,68 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { getGitlabData } from '@/lib/gitlab';
+import Link from 'next/link';
 
 export default function DebugPage() {
-  const [data, setData] = useState<{
-    events: any[];
-    projects: any[];
-    users: any[];
-  }>({
-    events: [],
-    projects: [],
-    users: []
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [events, projects, users] = await Promise.all([
-          getGitlabData('events'),
-          getGitlabData('projects'),
-          getGitlabData('users')
-        ]);
-
-        setData({ events, projects, users });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchData();
-  }, []);
-
-  if (loading) {
-    return <div className="p-4">Loading...</div>;
-  }
-
-  if (error) {
-    return <div className="p-4 text-red-500">Error: {error}</div>;
-  }
-
   return (
     <div className="p-4">
       <h1 className="text-2xl font-bold mb-4">GitLab API Debug</h1>
       
-      <div className="space-y-8">
-        {Object.entries(data).map(([key, value]) => (
-          <div key={key} className="border rounded-lg p-4">
-            <h2 className="text-xl font-semibold mb-2 capitalize">{key}</h2>
-            <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded overflow-auto max-h-96">
-              <pre className="text-sm">
-                {JSON.stringify(value, null, 2)}
-              </pre>
-            </div>
-            <div className="mt-2 text-sm text-gray-600">
-              Count: {Array.isArray(value) ? value.length : 0} items
-            </div>
-          </div>
-        ))}
-      </div>
+      <Link 
+        href="/debug/projects" 
+        className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors mr-4"
+      >
+        View Projects
+      </Link>
+      <Link 
+        href="/debug/activity" 
+        className="inline-block px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+      >
+        View Activity
+      </Link>
     </div>
   );
 } 

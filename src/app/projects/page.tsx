@@ -118,19 +118,15 @@ export default function DebugPage() {
 
   return (
     <div className="p-4">
-      <div className="mb-4">
-        <Link href="/debug" className="text-blue-500 hover:underline">
-          ← Back to Debug
-        </Link>
-      </div>
-
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">GitLab Projects</h1>
-        <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg">
-          <span className="text-lg font-semibold">Projects: {projects.length}</span>
-        </div>
+        <h1 className="text-2xl font-bold">Projects</h1>
+        {!loading && !error && (
+          <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg">
+            <span className="text-lg font-semibold">Total: {projects.length}</span>
+          </div>
+        )}
       </div>
-
+      
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
@@ -143,10 +139,6 @@ export default function DebugPage() {
         <div className="text-red-500">{error}</div>
       ) : (
         <div className="space-y-6">
-          <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
-            <h2 className="text-lg font-semibold mb-2">Project Count: {projects.length}</h2>
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {sortedProjects.map((project) => (
               <div key={project.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
@@ -226,7 +218,7 @@ export default function DebugPage() {
                 </div>
 
                 <Link 
-                  href={`/debug/projects/${project.id}`}
+                  href={`/projects/${project.id}`}
                   className="text-blue-500 hover:underline text-sm inline-block mt-2"
                 >
                   View Commits

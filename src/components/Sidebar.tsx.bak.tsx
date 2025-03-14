@@ -1,13 +1,14 @@
 'use client';
 
-import { HomeIcon, ChartBarIcon, BugAntIcon, BriefcaseIcon, UsersIcon, CogIcon } from '@heroicons/react/24/outline';
+import { HomeIcon, ChartBarIcon, UsersIcon, CogIcon } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-  { name: 'Projects', href: '/projects', icon: BriefcaseIcon },
-  { name: 'Debug', href: '/debug', icon: BugAntIcon },
+  { name: 'Overview', href: '/dashboard', icon: HomeIcon },
+  { name: 'Activity', href: '/dashboard/activity', icon: ChartBarIcon },
+  { name: 'Users', href: '/dashboard/users', icon: UsersIcon },
+  { name: 'Settings', href: '/dashboard/settings', icon: CogIcon }
 ];
 
 export default function Sidebar() {
@@ -28,7 +29,7 @@ export default function Sidebar() {
         </div>
         <nav className="flex-1 px-2 py-4 space-y-1">
           {navigation.map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const isActive = pathname === item.href;
             return (
               <Link
                 key={item.name}
