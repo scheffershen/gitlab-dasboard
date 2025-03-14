@@ -112,28 +112,93 @@ export default function Page({ params }: { params: { id: string } }) {
       ) : (
         <>
           <div className="space-y-6">
-            {commits.map((commit) => (
-              <div key={commit.id} className="bg-white dark:bg-gray-800 shadow rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium text-gray-900 dark:text-white">{commit.title}</h3>
-                  </div>
-                  <code className="text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                    {commit.short_id}
-                  </code>
+            {Object.entries(
+              commits.reduce((acc, commit) => {
+                const commitDate = new Date(commit.created_at);
+                const today = new Date();
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+
+                let dateLabel;
+                if (
+                  commitDate.getDate() === today.getDate() &&
+                  commitDate.getMonth() === today.getMonth() &&
+                  commitDate.getFullYear() === today.getFullYear()
+                ) {
+                  dateLabel = 'Today';
+                } else if (
+                  commitDate.getDate() === yesterday.getDate() &&
+                  commitDate.getMonth() === yesterday.getMonth() &&
+                  commitDate.getFullYear() === yesterday.getFullYear()
+                ) {
+                  dateLabel = 'Yesterday';
+                } else {
+                  dateLabel = commitDate.toLocaleDateString('en-US', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  });
+                }
+
+                if (!acc[dateLabel]) acc[dateLabel] = [];
+                acc[dateLabel].push(commit);
+                return acc;
+              }, {} as Record<string, typeof commits>)
+            ).map(([date, dayCommits]) => (
+              <div key={date} className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+                <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b dark:border-gray-600">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                    {date}
+                  </h3>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-500">
-                    <span>{commit.author_name}</span>
-                    <span className="mx-2">•</span>
-                    <span>{new Date(commit.created_at).toLocaleDateString()}</span>
-                  </div>
-                  <button
-                    onClick={() => setSelectedCommit(commit.id)}
-                    className="text-blue-500 hover:underline text-sm"
-                  >
-                    View Changes
-                  </button>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-800">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/2">
+                          Commit
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/6">
+                          Author
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/6">
+                          Hash
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/6">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                      {dayCommits.map((commit) => (
+                        <tr key={commit.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <td className="px-4 py-3">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-xl">
+                              {commit.title}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[150px]">
+                              {commit.author_name}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <code className="text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                              {commit.short_id}
+                            </code>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => setSelectedCommit(commit.id)}
+                              className="text-blue-500 hover:underline text-sm"
+                            >
+                              View Changes
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             ))}

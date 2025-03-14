@@ -1,10 +1,369 @@
-export default async function DashboardPage() {
+'use client';
+
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const PERIOD_OPTIONS = [
+  { label: '24 hours', value: '1' },
+  { label: '7 days', value: '7' },
+  { label: '14 days', value: '14' },
+  { label: '30 days', value: '30' },
+  { label: '60 days', value: '60' },
+  { label: '3 months', value: '90' },
+  { label: '6 months', value: '180' },
+];
+
+interface Project {
+  id: number;
+  name: string;
+}
+
+interface Developer {
+  id: number;
+  name: string;
+}
+
+interface Stats {
+  total_commits: number;
+  total_contributors: number;
+  additions: number;
+  deletions: number;
+}
+
+interface EventsData {
+  events: any[];
+  timestamp: string;
+}
+
+export default function Page() {
+  const [period, setPeriod] = useState('30');
+  const [selectedProject, setSelectedProject] = useState('all');
+  const [selectedDeveloper, setSelectedDeveloper] = useState('all');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [developers, setDevelopers] = useState<Developer[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [showJsonModal, setShowJsonModal] = useState(false);
+  const [eventsData, setEventsData] = useState<EventsData | null>(null);
+  const [showEventsModal, setShowEventsModal] = useState(false);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const api = axios.create({
+          baseURL: process.env.NEXT_PUBLIC_GITLAB_URL,
+          headers: {
+            'PRIVATE-TOKEN': process.env.NEXT_PUBLIC_GITLAB_TOKEN
+          }
+        });
+
+        const [projectsResponse, developersResponse] = await Promise.all([
+          api.get('/api/v4/projects', {
+            params: { membership: true, per_page: 100 }
+          }),
+          api.get('/api/v4/users', {
+            params: { active: true, per_page: 100 }
+          })
+        ]);
+
+        const sortedProjects = projectsResponse.data
+          .map((p: any) => ({ id: p.id, name: p.name }))
+          .sort((a: Project, b: Project) => a.name.localeCompare(b.name));
+
+        const sortedDevelopers = developersResponse.data
+          .map((d: any) => ({ id: d.id, name: d.name }))
+          .sort((a: Developer, b: Developer) => a.name.localeCompare(b.name));
+
+        setProjects(sortedProjects);
+        setDevelopers(sortedDevelopers);
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+      }
+    }
+
+    fetchData();
+  }, []);
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      const api = axios.create({
+        baseURL: process.env.NEXT_PUBLIC_GITLAB_URL,
+        headers: {
+          'PRIVATE-TOKEN': process.env.NEXT_PUBLIC_GITLAB_TOKEN
+        }
+      });
+
+      // Calculate date range
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - parseInt(period));
+
+      if (selectedProject === 'all' && selectedDeveloper === 'all') {
+        // Use events API for all projects and all users
+        const eventsResponse = await api.get('/api/v4/events', {
+          params: {
+            after: startDate.toISOString().split('T')[0],
+            before: endDate.toISOString().split('T')[0],
+            action: 'pushed',
+            per_page: 100
+          }
+        });
+
+        const events = eventsResponse.data;
+        
+        // Store raw events data
+        setEventsData({
+          events,
+          timestamp: new Date().toISOString()
+        });
+
+        // Calculate stats from events
+        const commits = events.reduce((acc: number, event: any) => {
+          return acc + (event.push_data?.commit_count || 0);
+        }, 0);
+
+        const contributors = new Set(events.map((event: any) => event.author_username));
+
+        setStats({
+          total_commits: commits,
+          total_contributors: contributors.size,
+          additions: 0, // Events API doesn't provide line changes
+          deletions: 0  // Events API doesn't provide line changes
+        });
+
+      } else if (selectedProject !== 'all') {
+        // Use project commits API for specific project
+        const projectEndpoint = `/api/v4/projects/${selectedProject}/repository/commits`;
+        const params: any = {
+          since: startDate.toISOString(),
+          until: endDate.toISOString(),
+        };
+
+        if (selectedDeveloper !== 'all') {
+          params.author_id = selectedDeveloper;
+        }
+
+        const commitsResponse = await api.get(projectEndpoint, { params });
+        const commits = commitsResponse.data;
+        const contributors = new Set(commits.map((c: any) => c.author_name));
+        
+        let additions = 0;
+        let deletions = 0;
+
+        await Promise.all(commits.map(async (commit: any) => {
+          const detailResponse = await api.get(`/api/v4/projects/${selectedProject}/repository/commits/${commit.id}`);
+          additions += detailResponse.data.stats?.additions || 0;
+          deletions += detailResponse.data.stats?.deletions || 0;
+        }));
+
+        setStats({
+          total_commits: commits.length,
+          total_contributors: contributors.size,
+          additions,
+          deletions
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="space-y-8">
+    <div className="p-4">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Dashboard</h1>
       </div>
+
+      <div className="space-y-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4">Advanced Filters</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {/* Period Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Period
+              </label>
+              <select
+                value={period}
+                onChange={(e) => setPeriod(e.target.value)}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
+              >
+                {PERIOD_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Project Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Project
+              </label>
+              <select
+                value={selectedProject}
+                onChange={(e) => setSelectedProject(e.target.value)}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
+              >
+                <option value="all">All projects</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Developer Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Developer
+              </label>
+              <select
+                value={selectedDeveloper}
+                onChange={(e) => setSelectedDeveloper(e.target.value)}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
+              >
+                <option value="all">All developers</option>
+                {developers.map((developer) => (
+                  <option key={developer.id} value={developer.id}>
+                    {developer.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Submit Button */}
+            <div className="flex items-end">
+              <button
+                onClick={handleSubmit}
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+              >
+                Update Data
+              </button>
+            </div>
+          </div>
+        </div>
+      
+        {/* Stats Display */}
+        <div className="mt-6">
+          {loading ? (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <div className="animate-pulse flex space-x-4">
+                <div className="flex-1 space-y-4">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : stats && (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold mb-4">Statistics</h2>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Commits</h3>
+                  <p className="mt-1 text-2xl font-semibold">{stats.total_commits}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Contributors</h3>
+                  <p className="mt-1 text-2xl font-semibold">{stats.total_contributors}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Lines Added</h3>
+                  <p className="mt-1 text-2xl font-semibold text-green-600">{stats.additions}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Lines Deleted</h3>
+                  <p className="mt-1 text-2xl font-semibold text-red-600">{stats.deletions}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Debug Buttons */}
+      <div className="mt-8 space-x-4 flex">
+        <button
+          onClick={() => setShowJsonModal(true)}
+          className="text-blue-500 hover:underline text-sm"
+        >
+          View Stats JSON Data
+        </button>
+        <button
+          onClick={() => setShowEventsModal(true)}
+          className="text-blue-500 hover:underline text-sm"
+          disabled={!eventsData}
+        >
+          View Events API Data
+        </button>
+      </div>
+
+      {/* Existing Stats JSON Modal */}
+      {showJsonModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
+              <h2 className="text-lg font-semibold">Raw JSON Data</h2>
+              <button
+                onClick={() => setShowJsonModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 overflow-auto flex-1">
+              <pre className="text-sm">
+                {JSON.stringify({
+                  filters: {
+                    period,
+                    selectedProject,
+                    selectedDeveloper
+                  },
+                  stats,
+                  projects,
+                  developers
+                }, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Events API JSON Modal */}
+      {showEventsModal && eventsData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-4xl mx-4 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
+              <div>
+                <h2 className="text-lg font-semibold">Events API Raw Data</h2>
+                <p className="text-sm text-gray-500">
+                  Fetched at: {new Date(eventsData.timestamp).toLocaleString()}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowEventsModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 overflow-auto flex-1">
+              <pre className="text-sm">
+                {JSON.stringify(eventsData.events, null, 2)}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
