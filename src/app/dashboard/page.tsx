@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import CommitModal from '@/components/CommitModal';
 
 const PERIOD_OPTIONS = [
   { label: '24 hours', value: '1' },
-  { label: '7 days', value: '7' },
+  { label: '7 days', value: '7', default: true },
   { label: '14 days', value: '14' },
   { label: '30 days', value: '30' },
   { label: '60 days', value: '60' },
@@ -35,8 +36,13 @@ interface EventsData {
   timestamp: string;
 }
 
+// Helper function to format date in YYYY-MM-DD
+const formatDate = (date: Date) => {
+  return date.toISOString().split('T')[0];
+};
+
 export default function Page() {
-  const [period, setPeriod] = useState('30');
+  const [period, setPeriod] = useState('7');
   const [selectedProject, setSelectedProject] = useState('all');
   const [selectedDeveloper, setSelectedDeveloper] = useState('all');
   const [projects, setProjects] = useState<Project[]>([]);
@@ -46,6 +52,7 @@ export default function Page() {
   const [showJsonModal, setShowJsonModal] = useState(false);
   const [eventsData, setEventsData] = useState<EventsData | null>(null);
   const [showEventsModal, setShowEventsModal] = useState(false);
+  const [selectedCommit, setSelectedCommit] = useState<{projectId: string, commitId: string} | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -84,6 +91,11 @@ export default function Page() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    handleSubmit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSubmit = async () => {
     setLoading(true);
     try {
@@ -94,18 +106,22 @@ export default function Page() {
         }
       });
 
-      // Calculate date range
+      // Calculate date range based on selected period
       const endDate = new Date();
       const startDate = new Date();
-      startDate.setDate(startDate.getDate() - parseInt(period));
+      const periodDays = parseInt(period);
+      startDate.setDate(startDate.getDate() - periodDays);
+      endDate.setDate(endDate.getDate() + 1); // Add 1 day to include today's commits
 
       if (selectedProject === 'all' && selectedDeveloper === 'all') {
         // Use events API for all projects and all users
+        // GET /events?action=pushed&after=2025-03-08&before=2025-03-15&scope=all
         const eventsResponse = await api.get('/api/v4/events', {
           params: {
-            after: startDate.toISOString().split('T')[0],
-            before: endDate.toISOString().split('T')[0],
+            after: formatDate(startDate),
+            before: formatDate(endDate),
             action: 'pushed',
+            scope: 'all',
             per_page: 100
           }
         });
@@ -288,8 +304,119 @@ export default function Page() {
             </div>
           )}
         </div>
+
+        {/* Commits Table */}
+        {eventsData && eventsData.events.length > 0 && (
+          <div className="space-y-6">
+            {Object.entries(
+              eventsData.events.reduce((acc, event) => {
+                const commitDate = new Date(event.created_at);
+                const today = new Date();
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+
+                let dateLabel;
+                if (
+                  commitDate.getDate() === today.getDate() &&
+                  commitDate.getMonth() === today.getMonth() &&
+                  commitDate.getFullYear() === today.getFullYear()
+                ) {
+                  dateLabel = 'Today';
+                } else if (
+                  commitDate.getDate() === yesterday.getDate() &&
+                  commitDate.getMonth() === yesterday.getMonth() &&
+                  commitDate.getFullYear() === yesterday.getFullYear()
+                ) {
+                  dateLabel = 'Yesterday';
+                } else {
+                  dateLabel = commitDate.toLocaleDateString('en-US', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  });
+                }
+
+                if (!acc[dateLabel]) acc[dateLabel] = [];
+                acc[dateLabel].push(event);
+                return acc;
+              }, {} as Record<string, typeof eventsData.events>)
+            ).map(([date, dayEvents]) => (
+              <div key={date} className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+                <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b dark:border-gray-600">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                    {date}
+                  </h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-800">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/3">
+                          Project
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/6">
+                          Author
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/6">
+                          Time
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-1/6">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                      {dayEvents.map((event) => (
+                        <tr key={event.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <td className="px-4 py-3">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-xs">
+                              {projects.find(p => p.id === event.project_id)?.name || `Project ID: ${event.project_id}`}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[150px]">
+                              {event.author.name}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {new Date(event.created_at).toLocaleString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => setSelectedCommit({
+                                projectId: event.project_id.toString(),
+                                commitId: event.push_data.commit_to
+                              })}
+                              className="text-blue-500 hover:underline text-sm"
+                            >
+                              View Changes
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+
+            {/* Add CommitModal component */}
+            <CommitModal
+              isOpen={!!selectedCommit}
+              onClose={() => setSelectedCommit(null)}
+              projectId={selectedCommit?.projectId || ''}
+              commitId={selectedCommit?.commitId || ''}
+            />
+          </div>
+        )}
       </div>
 
+      {/* can you show the commits in a table?*/}
       {/* Debug Buttons */}
       <div className="mt-8 space-x-4 flex">
         <button
@@ -346,7 +473,11 @@ export default function Page() {
               <div>
                 <h2 className="text-lg font-semibold">Events API Raw Data</h2>
                 <p className="text-sm text-gray-500">
-                  Fetched at: {new Date(eventsData.timestamp).toLocaleString()}
+                Fetched at: {new Date(eventsData.timestamp).toLocaleString('en-US', {
+                    timeZone: 'UTC',
+                    dateStyle: 'short',
+                    timeStyle: 'medium'
+                  })} UTC
                 </p>
               </div>
               <button
