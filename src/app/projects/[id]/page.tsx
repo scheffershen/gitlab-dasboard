@@ -14,6 +14,17 @@ interface Commit {
   created_at: string;
 }
 
+// Add period options constant
+const PERIOD_OPTIONS = [
+  { label: '24 hours', value: '1' },
+  { label: '7 days', value: '7', default: true },
+  { label: '14 days', value: '14' },
+  { label: '30 days', value: '30' },
+  { label: '60 days', value: '60' },
+  { label: '3 months', value: '90' },
+  { label: '6 months', value: '180' },
+];
+
 export default function Page({ params }: { params: { id: string } }) {
   const [commits, setCommits] = useState<Commit[]>([]);
   const [projectName, setProjectName] = useState<string>('');
@@ -24,6 +35,7 @@ export default function Page({ params }: { params: { id: string } }) {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [selectedCommit, setSelectedCommit] = useState<string | null>(null);
+  const [period, setPeriod] = useState('7');
 
   async function fetchProjectDetails() {
     try {
@@ -56,8 +68,16 @@ export default function Page({ params }: { params: { id: string } }) {
         }
       });
 
+      // Calculate date range based on selected period
+      const endDate = new Date();
+      const startDate = new Date();
+      const periodDays = parseInt(period);
+      startDate.setDate(startDate.getDate() - periodDays);
+
       const response = await api.get(`/api/v4/projects/${params.id}/repository/commits`, {
         params: {
+          since: startDate.toISOString(),
+          until: endDate.toISOString(),
           per_page: 50,
           page: pageNum
         }
@@ -84,7 +104,7 @@ export default function Page({ params }: { params: { id: string } }) {
     }
 
     loadCommits();
-  }, [params.id, page]);
+  }, [params.id, page, period]);
 
   useEffect(() => {
     fetchProjectDetails();
@@ -96,8 +116,30 @@ export default function Page({ params }: { params: { id: string } }) {
         <h1 className="text-2xl font-bold">
           {projectName ? `${projectName}` : 'Project Commits'}
         </h1>
-        <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg">
-          <span className="text-lg font-semibold">Total Commits: {totalCommits}</span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <label htmlFor="period" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Period:
+            </label>
+            <select
+              id="period"
+              value={period}
+              onChange={(e) => {
+                setPeriod(e.target.value);
+                setPage(1); // Reset to first page when period changes
+              }}
+              className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
+            >
+              {PERIOD_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg">
+            <span className="text-lg font-semibold">Total Commits: {totalCommits}</span>
+          </div>
         </div>
       </div>
 
