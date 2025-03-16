@@ -10,7 +10,9 @@ import {
   Legend,
   BarElement,
   LinearScale,
-  CategoryScale
+  CategoryScale,
+  LineElement,
+  PointElement
 } from 'chart.js'
 import { Pie, Bar } from 'react-chartjs-2'
 
@@ -22,11 +24,18 @@ const PERIOD_OPTIONS = [
   { label: '60 days', value: '60' },
   { label: '3 months', value: '90' },
   { label: '6 months', value: '180' },
+  { label: '1 year', value: '365' },
+  { label: '2 years', value: '730' },
 ]
 
 interface CommitData {
   commits: any[]
   timestamp: string
+}
+
+interface Project {
+  id: number
+  name: string
 }
 
 // Register ChartJS components
@@ -36,7 +45,9 @@ ChartJS.register(
   Legend, 
   BarElement,
   LinearScale,
-  CategoryScale
+  CategoryScale,
+  LineElement,
+  PointElement
 )
 
 export default function Page() {
@@ -45,6 +56,8 @@ export default function Page() {
   const [commitsData, setCommitsData] = useState<CommitData | null>(null)
   const [selectedCommit, setSelectedCommit] = useState<{projectId: string, commitId: string} | null>(null)
   const [showJsonModal, setShowJsonModal] = useState(false)
+  const [projects, setProjects] = useState<Project[]>([])
+  const [selectedProject, setSelectedProject] = useState('all')
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -56,72 +69,115 @@ export default function Page() {
         }
       })
 
-      // First get all projects with their default branch info
-      const projectsResponse = await api.get('/api/v4/projects', {
-        params: {
-          membership: true,
-          per_page: 100
-        }
-      })
-
       // Calculate date range
       const endDate = new Date()
       const startDate = new Date()
       const periodDays = parseInt(period)
       startDate.setDate(startDate.getDate() - periodDays)
 
-      // Fetch commits from all projects in parallel
-      const projectCommits = await Promise.all(
-        projectsResponse.data.map(async (project: any) => {
-          try {
-            // First get all branches
-            const branchesResponse = await api.get(`/api/v4/projects/${project.id}/repository/branches`)
-            
-            // Fetch commits from each branch in parallel
-            const branchCommits = await Promise.all(
-              branchesResponse.data.map(async (branch: any) => {
-                const commitsResponse = await api.get(`/api/v4/projects/${project.id}/repository/commits`, {
-                  params: {
-                    ref_name: branch.name, // Specify the branch
-                    since: startDate.toISOString(),
-                    until: endDate.toISOString(),
-                    per_page: 100
-                  }
-                })
-                
-                // Add project and branch info to each commit
-                return commitsResponse.data.map((commit: any) => ({
-                  ...commit,
-                  project_name: project.name,
-                  project_id: project.id,
-                  branch_name: branch.name,
-                  is_default_branch: branch.name === project.default_branch
-                }))
-              })
-            )
+      // If specific project is selected
+      if (selectedProject !== 'all') {
+        const project = projects.find(p => p.id.toString() === selectedProject)
+        if (!project) return
 
-            // Flatten commits from all branches and remove duplicates by commit ID
-            return Array.from(
-              new Map(
-                branchCommits.flat().map(commit => [commit.id, commit])
-              ).values()
-            )
-          } catch (error) {
-            console.error(`Failed to fetch commits for project ${project.id}:`, error)
-            return []
+        // First get all branches
+        const branchesResponse = await api.get(`/api/v4/projects/${selectedProject}/repository/branches`)
+        
+        // Fetch commits from each branch in parallel
+        const branchCommits = await Promise.all(
+          branchesResponse.data.map(async (branch: any) => {
+            const commitsResponse = await api.get(`/api/v4/projects/${selectedProject}/repository/commits`, {
+              params: {
+                ref_name: branch.name,
+                since: startDate.toISOString(),
+                until: endDate.toISOString(),
+                per_page: 100
+              }
+            })
+            
+            return commitsResponse.data.map((commit: any) => ({
+              ...commit,
+              project_name: project.name,
+              project_id: project.id,
+              branch_name: branch.name,
+              is_default_branch: branch.name === project.default_branch
+            }))
+          })
+        )
+
+        // Flatten commits and remove duplicates
+        const allCommits = Array.from(
+          new Map(
+            branchCommits.flat().map(commit => [commit.id, commit])
+          ).values()
+        ).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+        setCommitsData({
+          commits: allCommits,
+          timestamp: new Date().toISOString()
+        })
+      } else {
+        // First get all projects with their default branch info
+        const projectsResponse = await api.get('/api/v4/projects', {
+          params: {
+            membership: true,
+            per_page: 100
           }
         })
-      )
 
-      // Merge and sort all commits chronologically
-      const allCommits = projectCommits
-        .flat()
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        // Fetch commits from all projects in parallel
+        const projectCommits = await Promise.all(
+          projectsResponse.data.map(async (project: any) => {
+            try {
+              // First get all branches
+              const branchesResponse = await api.get(`/api/v4/projects/${project.id}/repository/branches`)
+              
+              // Fetch commits from each branch in parallel
+              const branchCommits = await Promise.all(
+                branchesResponse.data.map(async (branch: any) => {
+                  const commitsResponse = await api.get(`/api/v4/projects/${project.id}/repository/commits`, {
+                    params: {
+                      ref_name: branch.name, // Specify the branch
+                      since: startDate.toISOString(),
+                      until: endDate.toISOString(),
+                      per_page: 100
+                    }
+                  })
+                  
+                  // Add project and branch info to each commit
+                  return commitsResponse.data.map((commit: any) => ({
+                    ...commit,
+                    project_name: project.name,
+                    project_id: project.id,
+                    branch_name: branch.name,
+                    is_default_branch: branch.name === project.default_branch
+                  }))
+                })
+              )
 
-      setCommitsData({
-        commits: allCommits,
-        timestamp: new Date().toISOString()
-      })
+              // Flatten commits from all branches and remove duplicates by commit ID
+              return Array.from(
+                new Map(
+                  branchCommits.flat().map(commit => [commit.id, commit])
+                ).values()
+              )
+            } catch (error) {
+              console.error(`Failed to fetch commits for project ${project.id}:`, error)
+              return []
+            }
+          })
+        )
+
+        // Merge and sort all commits chronologically
+        const allCommits = projectCommits
+          .flat()
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+        setCommitsData({
+          commits: allCommits,
+          timestamp: new Date().toISOString()
+        })
+      }
     } catch (error) {
       console.error('Failed to fetch commits:', error)
     } finally {
@@ -133,6 +189,34 @@ export default function Page() {
   useEffect(() => {
     handleSubmit()
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Add this useEffect after the existing ones
+  useEffect(() => {
+    async function fetchProjects() {
+      try {
+        const api = axios.create({
+          baseURL: process.env.NEXT_PUBLIC_GITLAB_URL,
+          headers: {
+            'PRIVATE-TOKEN': process.env.NEXT_PUBLIC_GITLAB_TOKEN
+          }
+        })
+
+        const projectsResponse = await api.get('/api/v4/projects', {
+          params: { membership: true, per_page: 100 }
+        })
+
+        const sortedProjects = projectsResponse.data
+          .map((p: any) => ({ id: p.id, name: p.name }))
+          .sort((a: Project, b: Project) => a.name.localeCompare(b.name))
+
+        setProjects(sortedProjects)
+      } catch (error) {
+        console.error('Failed to fetch projects:', error)
+      }
+    }
+
+    fetchProjects()
   }, [])
 
   // Add this function to process contributor data
@@ -154,6 +238,25 @@ export default function Page() {
     }
   }
 
+  // Add this function next to getContributorStats
+  const getProjectStats = (commits: any[]) => {
+    const stats = commits.reduce((acc, commit) => {
+      const project = commit.project_name
+      acc[project] = (acc[project] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    // Sort by commit count descending and take top 10
+    const topProjects = Object.entries(stats)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 10)
+
+    return {
+      labels: topProjects.map(([name]) => name),
+      data: topProjects.map(([, count]) => count),
+    }
+  }
+
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
@@ -164,7 +267,7 @@ export default function Page() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold mb-4">Filters</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Period Filter */}
             <div>
               <label 
@@ -187,6 +290,29 @@ export default function Page() {
               </select>
             </div>
 
+            {/* Project Filter */}
+            <div>
+              <label 
+                htmlFor="project"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
+                Project
+              </label>
+              <select
+                id="project"
+                value={selectedProject}
+                onChange={(e) => setSelectedProject(e.target.value)}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm"
+              >
+                <option value="all">All projects</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Submit Button */}
             <div className="flex items-end">
               <button
@@ -202,30 +328,30 @@ export default function Page() {
         {/* Replace the existing Contributors Chart section with this */}
         {!loading && commitsData?.commits.length ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mt-6">
-            <h2 className="text-lg font-semibold mb-4">Contributors Statistics</h2>
+            <h2 className="text-lg font-semibold mb-4">Project & Contributor Statistics</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Pie Chart */}
+              {/* Pie Chart - Projects */}
               <div className="h-[300px] relative p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
                 <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                  Contribution Distribution
+                  Commits Distribution by Project
                 </h3>
                 <Pie
                   data={{
-                    labels: getContributorStats(commitsData.commits).labels,
+                    labels: getProjectStats(commitsData.commits).labels,
                     datasets: [
                       {
-                        data: getContributorStats(commitsData.commits).data,
+                        data: getProjectStats(commitsData.commits).data,
                         backgroundColor: [
-                          'rgba(59, 130, 246, 0.8)',
-                          'rgba(16, 185, 129, 0.8)',
-                          'rgba(239, 68, 68, 0.8)',
-                          'rgba(217, 119, 6, 0.8)',
-                          'rgba(139, 92, 246, 0.8)',
-                          'rgba(236, 72, 153, 0.8)',
-                          'rgba(14, 165, 233, 0.8)',
-                          'rgba(168, 85, 247, 0.8)',
-                          'rgba(251, 146, 60, 0.8)',
-                          'rgba(34, 197, 94, 0.8)',
+                          'rgba(59, 130, 246, 0.8)',   // blue
+                          'rgba(16, 185, 129, 0.8)',   // green
+                          'rgba(239, 68, 68, 0.8)',    // red
+                          'rgba(217, 119, 6, 0.8)',    // yellow
+                          'rgba(139, 92, 246, 0.8)',   // purple
+                          'rgba(236, 72, 153, 0.8)',   // pink
+                          'rgba(14, 165, 233, 0.8)',   // sky
+                          'rgba(168, 85, 247, 0.8)',   // violet
+                          'rgba(251, 146, 60, 0.8)',   // orange
+                          'rgba(34, 197, 94, 0.8)',    // emerald
                         ],
                         borderColor: [
                           'rgb(59, 130, 246)',
@@ -271,25 +397,38 @@ export default function Page() {
                 />
               </div>
 
-              {/* Vertical Separator - only visible on large screens */}
-              <div className="hidden lg:block absolute left-1/2 top-[5.5rem] bottom-6 w-px bg-gray-200 dark:bg-gray-700" />
-
-              {/* Bar Chart */}
+              {/* Bar Chart - Contributors */}
               <div className="h-[300px] relative p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
                 <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                  Commits per Contributor
+                  Commits by Contributor
                 </h3>
                 <Bar
                   data={{
-                    labels: getContributorStats(commitsData.commits).labels,
-                    datasets: [
-                      {
-                        data: getContributorStats(commitsData.commits).data,
-                        backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                        borderColor: 'rgb(59, 130, 246)',
-                        borderWidth: 1,
-                      }
-                    ]
+                    labels: Object.entries(
+                      commitsData.commits.reduce((acc, commit) => {
+                        const author = commit.author_name
+                        acc[author] = (acc[author] || 0) + 1
+                        return acc
+                      }, {} as Record<string, number>)
+                    )
+                      .sort(([, a], [, b]) => b - a)
+                      .slice(0, 10)
+                      .map(([name]) => name),
+                    datasets: [{
+                      data: Object.entries(
+                        commitsData.commits.reduce((acc, commit) => {
+                          const author = commit.author_name
+                          acc[author] = (acc[author] || 0) + 1
+                          return acc
+                        }, {} as Record<string, number>)
+                      )
+                        .sort(([, a], [, b]) => b - a)
+                        .slice(0, 10)
+                        .map(([, count]) => count),
+                      backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                      borderColor: 'rgb(59, 130, 246)',
+                      borderWidth: 1,
+                    }]
                   }}
                   options={{
                     indexAxis: 'y',
@@ -301,9 +440,7 @@ export default function Page() {
                       },
                       tooltip: {
                         callbacks: {
-                          label: (context) => {
-                            return `${context.parsed.x} commits`
-                          }
+                          label: (context) => `${context.parsed.x} commits`
                         }
                       }
                     },
@@ -313,9 +450,7 @@ export default function Page() {
                           color: 'rgba(107, 114, 128, 0.1)'
                         },
                         ticks: {
-                          font: {
-                            size: 11
-                          }
+                          font: { size: 11 }
                         }
                       },
                       y: {
@@ -323,9 +458,7 @@ export default function Page() {
                           display: false
                         },
                         ticks: {
-                          font: {
-                            size: 11
-                          }
+                          font: { size: 11 }
                         }
                       }
                     }

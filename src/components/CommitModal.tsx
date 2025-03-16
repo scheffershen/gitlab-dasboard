@@ -18,6 +18,7 @@ export default function CommitModal({ isOpen, onClose, projectId, commitId }: Co
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [selectedDiffIndex, setSelectedDiffIndex] = useState<number>(0);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -107,33 +108,81 @@ export default function CommitModal({ isOpen, onClose, projectId, commitId }: Co
               )}
             </div>
 
-            <div>
-              <h4 className="font-medium text-gray-900 dark:text-white mb-4">
-                Changed Files ({diffs.length})
-              </h4>
-              <div className="space-y-4">
-                {diffs.map((diff, index) => (
-                  <div key={index} className="border dark:border-gray-700 rounded p-4">
-                    <div className="flex items-center justify-between mb-2">
+            <div className="flex h-[calc(100vh-200px)]">
+              {/* Left Sidebar - File List */}
+              <div className="w-1/3 border-r dark:border-gray-700 overflow-y-auto">
+                <div className="space-y-1 p-4">
+                  {diffs.map((diff, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setSelectedDiffIndex(index)}
+                      className={`w-full text-left px-3 py-2 rounded-md transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                        selectedDiffIndex === index ? 'bg-gray-100 dark:bg-gray-800' : ''
+                      }`}
+                    >
                       <div className="flex items-center space-x-2">
-                        {diff.new_file && (
-                          <span className="text-green-500 text-sm">Added</span>
-                        )}
-                        {diff.deleted_file && (
-                          <span className="text-red-500 text-sm">Deleted</span>
-                        )}
-                        {diff.renamed_file && (
-                          <span className="text-blue-500 text-sm">Renamed</span>
-                        )}
-                        <span className="font-mono text-sm">{diff.new_path}</span>
+                        {/* File Status Indicator */}
+                        <div className="flex-shrink-0 w-2 h-2 rounded-full">
+                          {diff.new_file && <div className="w-full h-full bg-green-500" />}
+                          {diff.deleted_file && <div className="w-full h-full bg-red-500" />}
+                          {diff.renamed_file && <div className="w-full h-full bg-blue-500" />}
+                          {!diff.new_file && !diff.deleted_file && !diff.renamed_file && (
+                            <div className="w-full h-full bg-yellow-500" />
+                          )}
+                        </div>
+                        
+                        {/* File Name */}
+                        <div className="flex-1 truncate">
+                          <span className="font-mono text-sm">
+                            {diff.new_path}
+                          </span>
+                        </div>
+                        
+                        {/* Changes Count */}
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {diff.changes} Δ
+                        </span>
                       </div>
-                      <span className="text-sm text-gray-500">{diff.changes} changes</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right Side - Diff Content */}
+              <div className="flex-1 overflow-hidden">
+                {diffs.length > 0 && (
+                  <div className="h-full flex flex-col">
+                    {/* File Header */}
+                    <div className="p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          {diffs[selectedDiffIndex].new_file && (
+                            <span className="text-green-500 text-sm px-2 py-1 rounded-full bg-green-100 dark:bg-green-900">Added</span>
+                          )}
+                          {diffs[selectedDiffIndex].deleted_file && (
+                            <span className="text-red-500 text-sm px-2 py-1 rounded-full bg-red-100 dark:bg-red-900">Deleted</span>
+                          )}
+                          {diffs[selectedDiffIndex].renamed_file && (
+                            <span className="text-blue-500 text-sm px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900">Renamed</span>
+                          )}
+                          <span className="font-mono text-sm font-medium">
+                            {diffs[selectedDiffIndex].new_path}
+                          </span>
+                        </div>
+                        <span className="text-sm text-gray-500">
+                          {diffs[selectedDiffIndex].changes} changes
+                        </span>
+                      </div>
                     </div>
-                    <pre className="text-sm bg-gray-50 dark:bg-gray-900 p-4 rounded overflow-x-auto">
-                      {diff.diff}
-                    </pre>
+
+                    {/* Diff Content */}
+                    <div className="flex-1 overflow-auto p-4">
+                      <pre className="text-sm font-mono bg-gray-50 dark:bg-gray-900 p-4 rounded">
+                        {diffs[selectedDiffIndex].diff}
+                      </pre>
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>

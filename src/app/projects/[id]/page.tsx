@@ -23,6 +23,8 @@ const PERIOD_OPTIONS = [
   { label: '60 days', value: '60' },
   { label: '3 months', value: '90' },
   { label: '6 months', value: '180' },
+  { label: '1 year', value: '365' },
+  { label: '2 years', value: '730' },
 ];
 
 export default function Page({ params }: { params: { id: string } }) {
