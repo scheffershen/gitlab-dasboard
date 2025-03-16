@@ -5,9 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+  { name: 'Activity', href: '/activity', icon: ChartBarIcon },
   { name: 'Projects', href: '/projects', icon: BriefcaseIcon },
-  { name: 'Debug', href: '/debug', icon: BugAntIcon },
 ];
 
 export default function Sidebar() {
