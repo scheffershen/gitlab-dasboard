@@ -325,6 +325,32 @@ export default function Page() {
           </div>
         </div>
 
+        {/* Add this block after the Filters section and before the charts */}
+        {!loading && commitsData?.commits.length ? (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 className="text-lg font-semibold mb-4">Overview</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Total Commits
+                    </div>
+                    <div className="mt-1 text-2xl font-semibold">
+                    {commitsData.commits.length}
+                    </div>
+                </div>
+
+                <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Contributors
+                    </div>
+                    <div className="mt-1 text-2xl font-semibold">
+                    {new Set(commitsData.commits.map(c => c.author_name)).size}
+                    </div>
+                </div>
+            </div>
+        </div>
+        ) : null}
+
         {/* Replace the existing Contributors Chart section with this */}
         {!loading && commitsData?.commits.length ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mt-6">
