@@ -24,8 +24,8 @@ import {
 } from '@/components/ui/chart';
 
 const PERIOD_OPTIONS = [
-  { label: '24 hours', value: '1' },
-  { label: '7 days', value: '7', default: true },
+  { label: '24 hours', value: '1', default: true },
+  { label: '7 days', value: '7' },
   { label: '14 days', value: '14' },
   { label: '30 days', value: '30' },
   { label: '60 days', value: '60' },
@@ -107,6 +107,10 @@ export default function ActivityPage() {
   const [showJsonModal, setShowJsonModal] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [selectedContributor, setSelectedContributor] = useState('all');
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [reportContent, setReportContent] = useState<string>('');
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   // Get unique projects from commits
   const projects = useMemo(() => {
@@ -293,6 +297,44 @@ export default function ActivityPage() {
   useEffect(() => {
     handleSubmit();
   }, [selectedProject, period, selectedContributor]);
+
+  const generateDailyReport = async (date: string, commits: Commit[]) => {
+    setIsGeneratingReport(true);
+    setReportContent(''); // Reset previous content
+    try {
+      const response = await fetch('/api/generate-report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          date,
+          commits: commits.map(commit => ({
+            title: commit.title,
+            message: commit.message,
+            author: commit.author_name,
+            project: commit.project_name
+          }))
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      setReportContent(data.report);
+    } catch (error) {
+      setReportContent(`
+        <div class="text-red-500 space-y-4">
+          <h3 class="font-bold text-lg">Erreur de génération du rapport</h3>
+          <p>${error instanceof Error ? error.message : 'Une erreur inattendue est survenue'}</p>
+          <p class="text-sm">Veuillez réessayer plus tard ou contacter le support si le problème persiste.</p>
+        </div>
+      `);
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
 
   return (
     <PageContainer>
@@ -577,8 +619,21 @@ export default function ActivityPage() {
                 }, {} as Record<string, Commit[]>) || {}
             ).map(([date, dayCommits]) => (
               <Card key={date}>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">{date}</CardTitle>
+                  {selectedProject !== 'all' && selectedContributor !== 'all' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedDate(date);
+                        setShowReportModal(true);
+                        generateDailyReport(date, dayCommits);
+                      }}
+                    >
+                      Générer Rapport
+                    </Button>
+                  )}
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
@@ -707,6 +762,27 @@ export default function ActivityPage() {
               <pre className="text-sm p-4 bg-muted rounded-lg">
                 {JSON.stringify(commitsData, null, 2)}
               </pre>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+
+        {/* Report Modal */}
+        <Dialog open={showReportModal} onOpenChange={setShowReportModal}>
+          <DialogContent className="max-w-3xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle>Rapport de Développement - {selectedDate}</DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="mt-4 max-h-[60vh]">
+              {isGeneratingReport ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                <div 
+                  className="prose dark:prose-invert max-w-none px-4"
+                  dangerouslySetInnerHTML={{ __html: reportContent }}
+                />
+              )}
             </ScrollArea>
           </DialogContent>
         </Dialog>
