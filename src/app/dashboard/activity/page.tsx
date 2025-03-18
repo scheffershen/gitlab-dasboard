@@ -7,36 +7,15 @@ import PageContainer from '@/components/layout/page-container';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Pie, Bar } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-  BarElement,
-  LinearScale,
-  CategoryScale,
-  LineElement,
-  PointElement
-} from 'chart.js';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowsPointingInIcon, ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
 import { buttonVariants } from '@/components/ui/button';
 import CommitModal from '@/components/commit-modal';
-
-// Register ChartJS components
-ChartJS.register(
-  ArcElement,
-  Tooltip,
-  Legend,
-  BarElement,
-  LinearScale,
-  CategoryScale,
-  LineElement,
-  PointElement
-);
+import { PieChart, Pie, Label } from 'recharts';
+import { BarChart, Bar, XAxis, CartesianGrid, Tooltip, YAxis } from 'recharts';
 
 const PERIOD_OPTIONS = [
   { label: '24 hours', value: '1' },
@@ -316,27 +295,36 @@ export default function ActivityPage() {
           </CardContent>
         </Card>
 
-        {/* Add stats cards and charts here */}
         {!loading && commitsData?.commits.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Overview</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className='grid grid-cols-2 md:grid-cols-2 gap-4'>
-                <div className='p-4 bg-muted rounded-lg'>
-                  <p className='text-sm font-medium text-muted-foreground'>Total Commits</p>
-                  <p className='mt-1 text-2xl font-semibold'>{commitsData.commits.length}</p>
-                </div>
-                <div className='p-4 bg-muted rounded-lg'>
-                  <p className='text-sm font-medium text-muted-foreground'>Contributors</p>
-                  <p className='mt-1 text-2xl font-semibold'>
-                    {new Set(commitsData.commits.map(c => c.author_name)).size}
-                  </p>
-                </div>
+            <CardContent>          
+              <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-2'>
+                <Card>
+                  <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                    <CardTitle className='text-sm font-medium'>
+                      Total Commits
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className='text-2xl font-bold'>{commitsData.commits.length}</div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                    <CardTitle className='text-sm font-medium'>
+                      Contributors
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className='text-2xl font-bold'>{new Set(commitsData.commits.map(c => c.author_name)).size}</div>
+                  </CardContent>
+                </Card>
               </div>
             </CardContent>
-          </Card>
+          </Card>              
         )}
 
         {!loading && commitsData?.commits.length ? (
@@ -351,66 +339,64 @@ export default function ActivityPage() {
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">
                     Commits Distribution by Project
                   </h3>
-                  <Pie
-                    data={{
-                      labels: getProjectStats(commitsData.commits).labels,
-                      datasets: [
-                        {
-                          data: getProjectStats(commitsData.commits).data,
-                          backgroundColor: [
-                            'rgba(59, 130, 246, 0.8)',   // blue
-                            'rgba(16, 185, 129, 0.8)',   // green
-                            'rgba(239, 68, 68, 0.8)',    // red
-                            'rgba(217, 119, 6, 0.8)',    // yellow
-                            'rgba(139, 92, 246, 0.8)',   // purple
-                            'rgba(236, 72, 153, 0.8)',   // pink
-                            'rgba(14, 165, 233, 0.8)',   // sky
-                            'rgba(168, 85, 247, 0.8)',   // violet
-                            'rgba(251, 146, 60, 0.8)',   // orange
-                            'rgba(34, 197, 94, 0.8)',    // emerald
-                          ],
-                          borderColor: [
-                            'rgb(59, 130, 246)',
-                            'rgb(16, 185, 129)',
-                            'rgb(239, 68, 68)',
-                            'rgb(217, 119, 6)',
-                            'rgb(139, 92, 246)',
-                            'rgb(236, 72, 153)',
-                            'rgb(14, 165, 233)',
-                            'rgb(168, 85, 247)',
-                            'rgb(251, 146, 60)',
-                            'rgb(34, 197, 94)',
-                          ],
-                          borderWidth: 1,
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          position: 'right',
-                          labels: {
-                            font: { size: 11 },
-                            padding: 15,
-                            usePointStyle: true,
-                          }
-                        },
-                        tooltip: {
-                          callbacks: {
-                            label: (context) => {
-                              const label = context.label || '';
-                              const value = context.parsed;
-                              const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
-                              const percentage = ((value * 100) / total).toFixed(1);
-                              return `${label}: ${value} commits (${percentage}%)`;
-                            }
-                          }
-                        }
-                      }
-                    }}
-                  />
+                  <div className="h-full">
+                    <PieChart width={400} height={300}>
+                      <Pie
+                        data={getProjectStats(commitsData.commits).labels.map((label, index) => ({
+                          name: label,
+                          value: getProjectStats(commitsData.commits).data[index],
+                          fill: [
+                            'var(--chart-1)',
+                            'var(--chart-2)',
+                            'var(--chart-3)',
+                            'var(--chart-4)',
+                            'var(--chart-5)',
+                            'var(--chart-6)',
+                            'var(--chart-7)',
+                            'var(--chart-8)',
+                            'var(--chart-9)',
+                            'var(--chart-10)',
+                          ][index]
+                        }))}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        strokeWidth={5}
+                      >
+                        <Label
+                          content={({ viewBox }) => {
+                            const total = getProjectStats(commitsData.commits).data.reduce((a, b) => a + b, 0);
+                            return (
+                              <text
+                                x={viewBox.cx}
+                                y={viewBox.cy}
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                              >
+                                <tspan
+                                  x={viewBox.cx}
+                                  y={viewBox.cy}
+                                  className="fill-foreground text-3xl font-bold"
+                                >
+                                  {total}
+                                </tspan>
+                                <tspan
+                                  x={viewBox.cx}
+                                  y={viewBox.cy + 24}
+                                  className="fill-muted-foreground"
+                                >
+                                  Commits
+                                </tspan>
+                              </text>
+                            );
+                          }}
+                        />
+                      </Pie>
+                    </PieChart>
+                  </div>
                 </div>
 
                 {/* Bar Chart - Contributors */}
@@ -418,9 +404,11 @@ export default function ActivityPage() {
                   <h3 className="text-sm font-medium text-muted-foreground mb-2">
                     Commits by Contributor
                   </h3>
-                  <Bar
-                    data={{
-                      labels: Object.entries(
+                  <div className="h-full">
+                    <BarChart
+                      width={400}
+                      height={250}
+                      data={Object.entries(
                         commitsData.commits.reduce((acc, commit) => {
                           const author = commit.author_name;
                           acc[author] = (acc[author] || 0) + 1;
@@ -429,57 +417,57 @@ export default function ActivityPage() {
                       )
                         .sort(([, a], [, b]) => (b as number) - (a as number))
                         .slice(0, 10)
-                        .map(([name]) => name),
-                      datasets: [{
-                        data: Object.entries(
-                          commitsData.commits.reduce((acc, commit) => {
-                            const author = commit.author_name;
-                            acc[author] = (acc[author] || 0) + 1;
-                            return acc;
-                          }, {} as Record<string, number>)
-                        )
-                          .sort(([, a], [, b]) => (b as number) - (a as number))
-                          .slice(0, 10)
-                          .map(([, count]) => count),
-                        backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                        borderColor: 'rgb(59, 130, 246)',
-                        borderWidth: 1,
-                      }]
-                    }}
-                    options={{
-                      indexAxis: 'y',
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          display: false
-                        },
-                        tooltip: {
-                          callbacks: {
-                            label: (context) => `${context.parsed.x} commits`
+                        .map(([name, count]) => ({
+                          name,
+                          commits: count
+                        }))}
+                      layout="vertical"
+                      margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
+                    >
+                      <CartesianGrid horizontal={false} stroke="var(--muted-foreground)" opacity={0.1} />
+                      <XAxis type="number" />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        width={120}
+                        tick={{ fontSize: 11 }}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="rounded-lg border bg-background p-2 shadow-sm">
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="flex flex-col">
+                                    <span className="text-[0.70rem] uppercase text-muted-foreground">
+                                      Author
+                                    </span>
+                                    <span className="font-bold text-sm">
+                                      {payload[0].payload.name}
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-[0.70rem] uppercase text-muted-foreground">
+                                      Commits
+                                    </span>
+                                    <span className="font-bold text-sm">
+                                      {payload[0].value}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
                           }
-                        }
-                      },
-                      scales: {
-                        x: {
-                          grid: {
-                            color: 'rgba(107, 114, 128, 0.1)'
-                          },
-                          ticks: {
-                            font: { size: 11 }
-                          }
-                        },
-                        y: {
-                          grid: {
-                            display: false
-                          },
-                          ticks: {
-                            font: { size: 11 }
-                          }
-                        }
-                      }
-                    }}
-                  />
+                          return null;
+                        }}
+                      />
+                      <Bar
+                        dataKey="commits"
+                        fill="var(--chart-1)"
+                        radius={[4, 4, 4, 4]}
+                      />
+                    </BarChart>
+                  </div>
                 </div>
               </div>
             </CardContent>

@@ -33,7 +33,7 @@ export default function SignInForm() {
   const form = useForm<SignInFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: 'info@universalmedica.com',
+      email: '',
       password: ''
     }
   })
