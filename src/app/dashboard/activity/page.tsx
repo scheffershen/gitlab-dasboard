@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowsPointingInIcon, ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
 import { buttonVariants } from '@/components/ui/button';
 import CommitModal from '@/components/commit-modal';
-import { PieChart, Pie, Label, ViewBox } from 'recharts';
+import { PieChart, Pie, Label, ViewBox, Legend } from 'recharts';
 import { BarChart, Bar, XAxis, CartesianGrid, Tooltip, YAxis } from 'recharts';
 import {
   ChartConfig,
@@ -144,10 +144,12 @@ export default function ActivityPage() {
   // Get contributor stats for bar chart
   const contributorStats = useMemo(() => {
     if (!commitsData?.commits) return [];
-    return contributors.map(author => ({
-      name: author,
-      commits: commitsData.commits.filter(commit => commit.author_name === author).length
-    }));
+    return contributors
+      .map(author => ({
+        name: author,
+        commits: commitsData.commits.filter(commit => commit.author_name === author).length
+      }))
+      .sort((a, b) => b.commits - a.commits); // Sort in descending order by commit count
   }, [contributors, commitsData]);
 
   const handleSubmit = async () => {
@@ -435,6 +437,15 @@ export default function ActivityPage() {
                             }}
                           />
                         </Pie>
+                        <Legend 
+                          layout="horizontal" 
+                          align="center" 
+                          verticalAlign="bottom"
+                          iconType="circle"
+                          wrapperStyle={{
+                            paddingTop: '20px'
+                          }}
+                        />
                       </PieChart>
                     </ChartContainer>
                   </CardContent>
