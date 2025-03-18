@@ -99,8 +99,8 @@ export default function SignInForm() {
         />
 
         <div className="flex flex-col gap-3">
-          <Button type="submit" className="w-full" disabled={loading}>
-            Sign In
+          <Button type="submit" variant="black" className="w-full" disabled={loading}>
+            Login
           </Button>
           <Button variant="outline" className="w-full" disabled={loading}>
             Login with GitLab
