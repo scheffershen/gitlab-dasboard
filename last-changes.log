@@ -1,0 +1,791 @@
+diff --git a/src/app/dashboard/activity/page.bak.tsx b/src/app/dashboard/activity/page.bak.tsx
+index 7169d32..78eb493 100644
+--- a/src/app/dashboard/activity/page.bak.tsx
++++ b/src/app/dashboard/activity/page.bak.tsx
+@@ -1,6 +1,6 @@
+ 'use client';
+ 
+-import { useState, useEffect } from 'react';
++import { useState, useEffect, useMemo } from 'react';
+ import axios from 'axios';
+ import Link from 'next/link';
+ import PageContainer from '@/components/layout/page-container';
+@@ -14,8 +14,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+ import { ArrowsPointingInIcon, ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
+ import { buttonVariants } from '@/components/ui/button';
+ import CommitModal from '@/components/commit-modal';
+-import { PieChart, Pie, Label } from 'recharts';
++import { PieChart, Pie, Label, ViewBox, Legend } from 'recharts';
+ import { BarChart, Bar, XAxis, CartesianGrid, Tooltip, YAxis } from 'recharts';
++import {
++  ChartConfig,
++  ChartContainer,
++  ChartTooltip,
++  ChartTooltipContent
++} from '@/components/ui/chart';
+ 
+ const PERIOD_OPTIONS = [
+   { label: '24 hours', value: '1' },
+@@ -29,27 +35,130 @@ const PERIOD_OPTIONS = [
+   { label: '2 years', value: '730' }
+ ];
+ 
++interface Commit {
++  id: string;
++  project_id: number;
++  project_name: string;
++  author_name: string;
++  created_at: string;
++  title: string;
++  branch_name: string;
++  is_default_branch: boolean;
++}
++
++interface CommitData {
++  commits: Commit[];
++  timestamp: string;
++}
++
++interface PieChartViewBox {
++  cx: number;
++  cy: number;
++  innerRadius: number;
++  outerRadius: number;
++  startAngle: number;
++  endAngle: number;
++}
++
+ interface Project {
+   id: number;
+   name: string;
+-  default_branch?: string;
++  value: number;
+ }
+ 
+-interface CommitData {
+-  commits: any[];
+-  timestamp: string;
++interface Contributor {
++  name: string;
++  commits: number;
+ }
+ 
++const CHART_COLORS = [
++  'var(--chart-1)',
++  'var(--chart-2)',
++  'var(--chart-3)',
++  'var(--chart-4)',
++  'var(--chart-5)',
++  'var(--chart-6)',
++  'var(--chart-7)',
++  'var(--chart-8)',
++  'var(--chart-9)',
++  'var(--chart-10)',
++];
++
++const chartConfig = {
++  commits: {
++    label: 'Commits'
++  },
++  project: {
++    label: 'Project',
++    color: 'var(--chart-1)'
++  },
++  contributor: {
++    label: 'Contributor',
++    color: 'var(--chart-2)'
++  }
++} satisfies ChartConfig;
++
+ export default function ActivityPage() {
+   const [period, setPeriod] = useState('7');
+   const [loading, setLoading] = useState(false);
+   const [commitsData, setCommitsData] = useState<CommitData | null>(null);
+-  const [projects, setProjects] = useState<Project[]>([]);
+   const [selectedProject, setSelectedProject] = useState('all');
+   const [selectedCommit, setSelectedCommit] = useState<{projectId: string, commitId: string} | null>(null);
+   const [showJsonModal, setShowJsonModal] = useState(false);
+   const [isFullscreen, setIsFullscreen] = useState(false);
+-
++  const [selectedContributor, setSelectedContributor] = useState('all');
++
++  // Get unique projects from commits
++  const projects = useMemo(() => {
++    if (!commitsData?.commits) return [];
++    const uniqueProjects = new Map();
++    commitsData.commits.forEach(commit => {
++      if (!uniqueProjects.has(commit.project_id)) {
++        uniqueProjects.set(commit.project_id, {
++          id: commit.project_id,
++          name: commit.project_name,
++          value: 0
++        });
++      }
++    });
++    return Array.from(uniqueProjects.values()).sort((a, b) => a.name.localeCompare(b.name));
++  }, [commitsData]);
++
++  // Get unique contributors from commits
++  const contributors = useMemo(() => {
++    if (!commitsData?.commits) return [];
++    const uniqueContributors = new Set(commitsData.commits.map(commit => commit.author_name));
++    return Array.from(uniqueContributors).sort();
++  }, [commitsData]);
++
++  // Add this memoized filtered commits
++  const filteredCommits = useMemo(() => {
++    if (!commitsData?.commits) return [];
++    return commitsData.commits.filter(commit => {
++      const matchesProject = selectedProject === 'all' || commit.project_id.toString() === selectedProject;
++      const matchesContributor = selectedContributor === 'all' || commit.author_name === selectedContributor;
++      return matchesProject && matchesContributor;
++    });
++  }, [commitsData, selectedProject, selectedContributor]);
++
++  // Update the projectStats calculation
++  const projectStats = useMemo(() => {
++    return projects.map((project, index) => ({
++      ...project,
++      value: filteredCommits.filter(commit => commit.project_id === project.id).length,
++      fill: CHART_COLORS[index % CHART_COLORS.length]
++    }));
++  }, [projects, filteredCommits]);
++
++  // Update the contributorStats calculation
++  const contributorStats = useMemo(() => {
++    return contributors
++      .map(author => ({
++        name: author,
++        commits: filteredCommits.filter(commit => commit.author_name === author).length
++      }))
++      .sort((a, b) => b.commits - a.commits);
++  }, [contributors, filteredCommits]);
+ 
+   const handleSubmit = async () => {
+     setLoading(true)
+@@ -129,14 +238,13 @@ export default function ActivityPage() {
+                 branchesResponse.data.map(async (branch: any) => {
+                   const commitsResponse = await api.get(`/api/v4/projects/${project.id}/repository/commits`, {
+                     params: {
+-                      ref_name: branch.name, // Specify the branch
++                      ref_name: branch.name,
+                       since: startDate.toISOString(),
+                       until: endDate.toISOString(),
+                       per_page: 100
+                     }
+                   })
+                   
+-                  // Add project and branch info to each commit
+                   return commitsResponse.data.map((commit: any) => ({
+                     ...commit,
+                     project_name: project.name,
+@@ -147,7 +255,6 @@ export default function ActivityPage() {
+                 })
+               )
+ 
+-              // Flatten commits from all branches and remove duplicates by commit ID
+               return Array.from(
+                 new Map(
+                   branchCommits.flat().map(commit => [commit.id, commit])
+@@ -160,7 +267,6 @@ export default function ActivityPage() {
+           })
+         )
+ 
+-        // Merge and sort all commits chronologically
+         const allCommits = projectCommits
+           .flat()
+           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+@@ -185,68 +291,8 @@ export default function ActivityPage() {
+ 
+   // Add this useEffect after the existing ones
+   useEffect(() => {
+-    async function fetchProjects() {
+-      try {
+-        const api = axios.create({
+-          baseURL: process.env.NEXT_PUBLIC_GITLAB_URL,
+-          headers: {
+-            'PRIVATE-TOKEN': process.env.NEXT_PUBLIC_GITLAB_TOKEN
+-          }
+-        })
+-
+-        const projectsResponse = await api.get('/api/v4/projects', {
+-          params: { membership: true, per_page: 100 }
+-        })
+-
+-        const sortedProjects = projectsResponse.data
+-          .map((p: any) => ({ id: p.id, name: p.name }))
+-          .sort((a: Project, b: Project) => a.name.localeCompare(b.name))
+-
+-        setProjects(sortedProjects)
+-      } catch (error) {
+-        console.error('Failed to fetch projects:', error)
+-      }
+-    }
+-
+-    fetchProjects()
+-  }, [])
+-
+-  // Add this function to process contributor data
+-  const getContributorStats = (commits: any[]) => {
+-    const stats = commits.reduce((acc, commit) => {
+-      const author = commit.author_name
+-      acc[author] = (acc[author] || 0) + 1
+-      return acc
+-    }, {} as Record<string, number>)
+-
+-    // Sort by commit count descending and take top 10
+-    const topContributors = Object.entries(stats)
+-      .sort(([, a], [, b]) => b - a)
+-      .slice(0, 10)
+-
+-    return {
+-      labels: topContributors.map(([name]) => name),
+-      data: topContributors.map(([, count]) => count),
+-    }
+-  }
+-
+-  // Add this function next to getContributorStats
+-  const getProjectStats = (commits: any[]) => {
+-    const stats = commits.reduce((acc, commit) => {
+-      const project = commit.project_name
+-      acc[project] = (acc[project] || 0) + 1
+-      return acc
+-    }, {} as Record<string, number>)
+-
+-    const topProjects = Object.entries(stats)
+-      .sort(([, a], [, b]) => (b as number) - (a as number))
+-      .slice(0, 10)
+-
+-    return {
+-      labels: topProjects.map(([name]) => name),
+-      data: topProjects.map(([, count]) => count),
+-    }
+-  }
++    handleSubmit();
++  }, [selectedProject, period, selectedContributor]);
+ 
+   return (
+     <PageContainer>
+@@ -288,14 +334,24 @@ export default function ActivityPage() {
+                 </SelectContent>
+               </Select>
+ 
+-              <Button onClick={handleSubmit} disabled={loading}>
+-                {loading ? 'Loading...' : 'Update Data'}
+-              </Button>
++              <Select value={selectedContributor} onValueChange={setSelectedContributor}>
++                <SelectTrigger>
++                  <SelectValue placeholder='Select contributor' />
++                </SelectTrigger>
++                <SelectContent>
++                  <SelectItem value='all'>All contributors</SelectItem>
++                  {contributors.map((contributor) => (
++                    <SelectItem key={contributor} value={contributor}>
++                      {contributor}
++                    </SelectItem>
++                  ))}
++                </SelectContent>
++              </Select>
+             </div>
+           </CardContent>
+         </Card>
+ 
+-        {!loading && commitsData?.commits.length > 0 && (
++        {!loading && commitsData?.commits && commitsData.commits.length > 0 && (
+           <Card>
+             <CardHeader>
+               <CardTitle>Overview</CardTitle>
+@@ -309,7 +365,7 @@ export default function ActivityPage() {
+                     </CardTitle>
+                   </CardHeader>
+                   <CardContent>
+-                    <div className='text-2xl font-bold'>{commitsData.commits.length}</div>
++                    <div className='text-2xl font-bold'>{filteredCommits.length}</div>
+                   </CardContent>
+                 </Card>
+                 <Card>
+@@ -319,7 +375,9 @@ export default function ActivityPage() {
+                     </CardTitle>
+                   </CardHeader>
+                   <CardContent>
+-                    <div className='text-2xl font-bold'>{new Set(commitsData.commits.map(c => c.author_name)).size}</div>
++                    <div className='text-2xl font-bold'>
++                      {new Set(filteredCommits.map(c => c.author_name)).size}
++                    </div>
+                   </CardContent>
+                 </Card>
+               </div>
+@@ -327,7 +385,7 @@ export default function ActivityPage() {
+           </Card>              
+         )}
+ 
+-        {!loading && commitsData?.commits.length ? (
++        {!loading && commitsData?.commits && commitsData.commits.length > 0 && (
+           <Card>
+             <CardHeader>
+               <CardTitle>Project & Contributor Statistics</CardTitle>
+@@ -335,144 +393,142 @@ export default function ActivityPage() {
+             <CardContent>
+               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                 {/* Pie Chart - Projects */}
+-                <div className="h-[300px] relative p-4 bg-muted rounded-lg">
+-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
+-                    Commits Distribution by Project
+-                  </h3>
+-                  <div className="h-full">
+-                    <PieChart width={400} height={300}>
+-                      <Pie
+-                        data={getProjectStats(commitsData.commits).labels.map((label, index) => ({
+-                          name: label,
+-                          value: getProjectStats(commitsData.commits).data[index],
+-                          fill: [
+-                            'var(--chart-1)',
+-                            'var(--chart-2)',
+-                            'var(--chart-3)',
+-                            'var(--chart-4)',
+-                            'var(--chart-5)',
+-                            'var(--chart-6)',
+-                            'var(--chart-7)',
+-                            'var(--chart-8)',
+-                            'var(--chart-9)',
+-                            'var(--chart-10)',
+-                          ][index]
+-                        }))}
+-                        dataKey="value"
+-                        nameKey="name"
+-                        cx="50%"
+-                        cy="50%"
+-                        innerRadius={60}
+-                        outerRadius={100}
+-                        strokeWidth={5}
+-                      >
+-                        <Label
+-                          content={({ viewBox }) => {
+-                            const total = getProjectStats(commitsData.commits).data.reduce((a, b) => a + b, 0);
+-                            return (
+-                              <text
+-                                x={viewBox.cx}
+-                                y={viewBox.cy}
+-                                textAnchor="middle"
+-                                dominantBaseline="middle"
+-                              >
+-                                <tspan
+-                                  x={viewBox.cx}
+-                                  y={viewBox.cy}
+-                                  className="fill-foreground text-3xl font-bold"
+-                                >
+-                                  {total}
+-                                </tspan>
+-                                <tspan
+-                                  x={viewBox.cx}
+-                                  y={viewBox.cy + 24}
+-                                  className="fill-muted-foreground"
+-                                >
+-                                  Commits
+-                                </tspan>
+-                              </text>
+-                            );
++                <Card>
++                  <CardHeader>
++                    <CardTitle>Commits Distribution by Project</CardTitle>
++                  </CardHeader>
++                  <CardContent className="flex-1 pb-0">
++                    <ChartContainer
++                      config={chartConfig}
++                      className="mx-auto aspect-square max-h-[300px]"
++                    >
++                      <PieChart>
++                        <ChartTooltip
++                          cursor={false}
++                          content={<ChartTooltipContent hideLabel />}
++                        />
++                        <Pie
++                          data={projectStats}
++                          dataKey="value"
++                          nameKey="name"
++                          innerRadius={60}
++                          outerRadius={100}
++                          strokeWidth={5}
++                        >
++                          <Label
++                            content={({ viewBox }) => {
++                              if (viewBox && 'cx' in viewBox && 'cy' in viewBox) {
++                                const total = projectStats.reduce((acc, project) => acc + project.value, 0);
++                                return (
++                                  <text
++                                    x={viewBox.cx}
++                                    y={viewBox.cy}
++                                    textAnchor="middle"
++                                    dominantBaseline="middle"
++                                  >
++                                    <tspan
++                                      x={viewBox.cx}
++                                      y={viewBox.cy}
++                                      className="fill-foreground text-3xl font-bold"
++                                    >
++                                      {total}
++                                    </tspan>
++                                    <tspan
++                                      x={viewBox.cx}
++                                      y={viewBox.cy + 24}
++                                      className="fill-muted-foreground"
++                                    >
++                                      Commits
++                                    </tspan>
++                                  </text>
++                                );
++                              }
++                              return null;
++                            }}
++                          />
++                        </Pie>
++                        <Legend 
++                          layout="horizontal" 
++                          align="center" 
++                          verticalAlign="bottom"
++                          iconType="circle"
++                          wrapperStyle={{
++                            paddingTop: '20px'
+                           }}
+                         />
+-                      </Pie>
+-                    </PieChart>
+-                  </div>
+-                </div>
++                      </PieChart>
++                    </ChartContainer>
++                  </CardContent>
++                </Card>
+ 
+                 {/* Bar Chart - Contributors */}
+-                <div className="h-[300px] relative p-4 bg-muted rounded-lg">
+-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
+-                    Commits by Contributor
+-                  </h3>
+-                  <div className="h-full">
+-                    <BarChart
+-                      width={400}
+-                      height={250}
+-                      data={Object.entries(
+-                        commitsData.commits.reduce((acc, commit) => {
+-                          const author = commit.author_name;
+-                          acc[author] = (acc[author] || 0) + 1;
+-                          return acc;
+-                        }, {} as Record<string, number>)
+-                      )
+-                        .sort(([, a], [, b]) => (b as number) - (a as number))
+-                        .slice(0, 10)
+-                        .map(([name, count]) => ({
+-                          name,
+-                          commits: count
+-                        }))}
+-                      layout="vertical"
+-                      margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
++                <Card>
++                  <CardHeader>
++                    <CardTitle>Commits by Contributor</CardTitle>
++                  </CardHeader>
++                  <CardContent className="flex-1 pb-0">
++                    <ChartContainer
++                      config={chartConfig}
++                      className="mx-auto h-[300px]"
+                     >
+-                      <CartesianGrid horizontal={false} stroke="var(--muted-foreground)" opacity={0.1} />
+-                      <XAxis type="number" />
+-                      <YAxis
+-                        type="category"
+-                        dataKey="name"
+-                        width={120}
+-                        tick={{ fontSize: 11 }}
+-                      />
+-                      <Tooltip
+-                        content={({ active, payload }) => {
+-                          if (active && payload && payload.length) {
+-                            return (
+-                              <div className="rounded-lg border bg-background p-2 shadow-sm">
+-                                <div className="grid grid-cols-2 gap-2">
+-                                  <div className="flex flex-col">
+-                                    <span className="text-[0.70rem] uppercase text-muted-foreground">
+-                                      Author
+-                                    </span>
+-                                    <span className="font-bold text-sm">
+-                                      {payload[0].payload.name}
+-                                    </span>
+-                                  </div>
+-                                  <div className="flex flex-col">
+-                                    <span className="text-[0.70rem] uppercase text-muted-foreground">
+-                                      Commits
+-                                    </span>
+-                                    <span className="font-bold text-sm">
+-                                      {payload[0].value}
+-                                    </span>
++                      <BarChart
++                        width={400}
++                        height={250}
++                        data={contributorStats}
++                        layout="vertical"
++                        margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
++                      >
++                        <CartesianGrid horizontal={false} stroke="var(--muted-foreground)" opacity={0.1} />
++                        <XAxis type="number" />
++                        <YAxis
++                          type="category"
++                          dataKey="name"
++                          width={120}
++                          tick={{ fontSize: 11 }}
++                        />
++                        <ChartTooltip
++                          cursor={false}
++                          content={({ active, payload }) => {
++                            if (active && payload && payload.length) {
++                              return (
++                                <div className="rounded-lg border bg-background p-2 shadow-sm">
++                                  <div className="grid grid-cols-2 gap-2">
++                                    <div className="flex flex-col">
++                                      <span className="text-[0.70rem] uppercase text-muted-foreground">
++                                        Author
++                                      </span>
++                                      <span className="font-bold text-sm">
++                                        {payload[0].payload.name}
++                                      </span>
++                                    </div>
++                                    <div className="flex flex-col">
++                                      <span className="text-[0.70rem] uppercase text-muted-foreground">
++                                        Commits
++                                      </span>
++                                      <span className="font-bold text-sm">
++                                        {payload[0].value}
++                                      </span>
++                                    </div>
+                                   </div>
+                                 </div>
+-                              </div>
+-                            );
+-                          }
+-                          return null;
+-                        }}
+-                      />
+-                      <Bar
+-                        dataKey="commits"
+-                        fill="var(--chart-1)"
+-                        radius={[4, 4, 4, 4]}
+-                      />
+-                    </BarChart>
+-                  </div>
+-                </div>
++                              );
++                            }
++                            return null;
++                          }}
++                        />
++                        <Bar
++                          dataKey="commits"
++                          fill="var(--chart-1)"
++                          radius={[4, 4, 4, 4]}
++                        />
++                      </BarChart>
++                    </ChartContainer>
++                  </CardContent>
++                </Card>
+               </div>
+             </CardContent>
+           </Card>
+-        ) : null}
++        )}
+         
+         {/* Commits Display */}
+         {loading ? (
+@@ -486,40 +542,42 @@ export default function ActivityPage() {
+         ) : commitsData?.commits.length ? (
+           <div className="space-y-6">
+             {Object.entries(
+-              commitsData.commits.reduce((acc, commit) => {
+-                const commitDate = new Date(commit.created_at);
+-                const today = new Date();
+-                const yesterday = new Date();
+-                yesterday.setDate(yesterday.getDate() - 1);
+-
+-                let dateLabel;
+-                if (
+-                  commitDate.getDate() === today.getDate() &&
+-                  commitDate.getMonth() === today.getMonth() &&
+-                  commitDate.getFullYear() === today.getFullYear()
+-                ) {
+-                  dateLabel = 'Today';
+-                } else if (
+-                  commitDate.getDate() === yesterday.getDate() &&
+-                  commitDate.getMonth() === yesterday.getMonth() &&
+-                  commitDate.getFullYear() === yesterday.getFullYear()
+-                ) {
+-                  dateLabel = 'Yesterday';
+-                } else {
+-                  dateLabel = commitDate.toLocaleDateString('en-US', {
+-                    day: 'numeric',
+-                    month: 'long',
+-                    year: 'numeric'
+-                  });
+-                }
+-
+-                if (!acc[dateLabel]) acc[dateLabel] = [];
+-                acc[dateLabel].push(commit);
+-                return acc;
+-              }, {} as Record<string, typeof commitsData.commits>)
++              commitsData?.commits
++                .filter(commit => selectedContributor === 'all' || commit.author_name === selectedContributor)
++                .reduce((acc, commit) => {
++                  const commitDate = new Date(commit.created_at);
++                  const today = new Date();
++                  const yesterday = new Date();
++                  yesterday.setDate(yesterday.getDate() - 1);
++
++                  let dateLabel;
++                  if (
++                    commitDate.getDate() === today.getDate() &&
++                    commitDate.getMonth() === today.getMonth() &&
++                    commitDate.getFullYear() === today.getFullYear()
++                  ) {
++                    dateLabel = 'Today';
++                  } else if (
++                    commitDate.getDate() === yesterday.getDate() &&
++                    commitDate.getMonth() === yesterday.getMonth() &&
++                    commitDate.getFullYear() === yesterday.getFullYear()
++                  ) {
++                    dateLabel = 'Yesterday';
++                  } else {
++                    dateLabel = commitDate.toLocaleDateString('en-US', {
++                      day: 'numeric',
++                      month: 'long',
++                      year: 'numeric'
++                    });
++                  }
++
++                  if (!acc[dateLabel]) acc[dateLabel] = [];
++                  acc[dateLabel].push(commit);
++                  return acc;
++                }, {} as Record<string, Commit[]>) || {}
+             ).map(([date, dayCommits]) => (
+               <Card key={date}>
+-                <CardHeader className="bg-muted border-b">
++                <CardHeader>
+                   <CardTitle className="text-lg">{date}</CardTitle>
+                 </CardHeader>
+                 <CardContent className="p-0">
+diff --git a/src/app/dashboard/activity/page.tsx b/src/app/dashboard/activity/page.tsx
+index ab9d4af..78eb493 100644
+--- a/src/app/dashboard/activity/page.tsx
++++ b/src/app/dashboard/activity/page.tsx
+@@ -131,26 +131,34 @@ export default function ActivityPage() {
+     return Array.from(uniqueContributors).sort();
+   }, [commitsData]);
+ 
+-  // Get project stats for pie chart
+-  const projectStats = useMemo(() => {
++  // Add this memoized filtered commits
++  const filteredCommits = useMemo(() => {
+     if (!commitsData?.commits) return [];
++    return commitsData.commits.filter(commit => {
++      const matchesProject = selectedProject === 'all' || commit.project_id.toString() === selectedProject;
++      const matchesContributor = selectedContributor === 'all' || commit.author_name === selectedContributor;
++      return matchesProject && matchesContributor;
++    });
++  }, [commitsData, selectedProject, selectedContributor]);
++
++  // Update the projectStats calculation
++  const projectStats = useMemo(() => {
+     return projects.map((project, index) => ({
+       ...project,
+-      value: commitsData.commits.filter(commit => commit.project_id === project.id).length,
++      value: filteredCommits.filter(commit => commit.project_id === project.id).length,
+       fill: CHART_COLORS[index % CHART_COLORS.length]
+     }));
+-  }, [projects, commitsData]);
++  }, [projects, filteredCommits]);
+ 
+-  // Get contributor stats for bar chart
++  // Update the contributorStats calculation
+   const contributorStats = useMemo(() => {
+-    if (!commitsData?.commits) return [];
+     return contributors
+       .map(author => ({
+         name: author,
+-        commits: commitsData.commits.filter(commit => commit.author_name === author).length
++        commits: filteredCommits.filter(commit => commit.author_name === author).length
+       }))
+-      .sort((a, b) => b.commits - a.commits); // Sort in descending order by commit count
+-  }, [contributors, commitsData]);
++      .sort((a, b) => b.commits - a.commits);
++  }, [contributors, filteredCommits]);
+ 
+   const handleSubmit = async () => {
+     setLoading(true)
+@@ -357,7 +365,7 @@ export default function ActivityPage() {
+                     </CardTitle>
+                   </CardHeader>
+                   <CardContent>
+-                    <div className='text-2xl font-bold'>{commitsData.commits.length}</div>
++                    <div className='text-2xl font-bold'>{filteredCommits.length}</div>
+                   </CardContent>
+                 </Card>
+                 <Card>
+@@ -367,7 +375,9 @@ export default function ActivityPage() {
+                     </CardTitle>
+                   </CardHeader>
+                   <CardContent>
+-                    <div className='text-2xl font-bold'>{contributors.length}</div>
++                    <div className='text-2xl font-bold'>
++                      {new Set(filteredCommits.map(c => c.author_name)).size}
++                    </div>
+                   </CardContent>
+                 </Card>
+               </div>
+@@ -567,7 +577,7 @@ export default function ActivityPage() {
+                 }, {} as Record<string, Commit[]>) || {}
+             ).map(([date, dayCommits]) => (
+               <Card key={date}>
+-                <CardHeader className="bg-muted border-b">
++                <CardHeader>
+                   <CardTitle className="text-lg">{date}</CardTitle>
+                 </CardHeader>
+                 <CardContent className="p-0">
+diff --git a/src/components/commit-modal.tsx b/src/components/commit-modal.tsx
+index 94d8d4e..bee9590 100644
+--- a/src/components/commit-modal.tsx
++++ b/src/components/commit-modal.tsx
+@@ -62,19 +62,24 @@ export default function CommitModal({ isOpen, onClose, projectId, commitId }: Co
+     <Dialog open={isOpen} onOpenChange={onClose}>
+       <DialogContent className={`${isFullscreen ? 'w-screen h-screen max-w-none m-0' : 'max-w-4xl'}`}>
+         <DialogHeader>
+-          <div className="flex justify-between items-center">
+-            <DialogTitle>Commit Details</DialogTitle>
+-            <Button
+-              variant="ghost"
+-              size="icon"
+-              onClick={() => setIsFullscreen(!isFullscreen)}
+-            >
+-              {isFullscreen ? (
+-                <ArrowsPointingInIcon className="h-5 w-5" />
+-              ) : (
+-                <ArrowsPointingOutIcon className="h-5 w-5" />
+-              )}
+-            </Button>
++          <div className="flex items-center">
++            <div className="flex-none">
++              <Button
++                variant="ghost"
++                size="icon"
++                onClick={() => setIsFullscreen(!isFullscreen)}
++              >
++                {isFullscreen ? (
++                  <ArrowsPointingInIcon className="h-5 w-5" />
++                ) : (
++                  <ArrowsPointingOutIcon className="h-5 w-5" />
++                )}
++              </Button>
++            </div>
++            <DialogTitle className="flex-1 text-center">
++              Commit Details
++            </DialogTitle>
++            <div className="flex-none w-10"></div>
+           </div>
+         </DialogHeader>
+ 

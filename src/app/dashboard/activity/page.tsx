@@ -131,26 +131,34 @@ export default function ActivityPage() {
     return Array.from(uniqueContributors).sort();
   }, [commitsData]);
 
-  // Get project stats for pie chart
-  const projectStats = useMemo(() => {
+  // Add this memoized filtered commits
+  const filteredCommits = useMemo(() => {
     if (!commitsData?.commits) return [];
+    return commitsData.commits.filter(commit => {
+      const matchesProject = selectedProject === 'all' || commit.project_id.toString() === selectedProject;
+      const matchesContributor = selectedContributor === 'all' || commit.author_name === selectedContributor;
+      return matchesProject && matchesContributor;
+    });
+  }, [commitsData, selectedProject, selectedContributor]);
+
+  // Update the projectStats calculation
+  const projectStats = useMemo(() => {
     return projects.map((project, index) => ({
       ...project,
-      value: commitsData.commits.filter(commit => commit.project_id === project.id).length,
+      value: filteredCommits.filter(commit => commit.project_id === project.id).length,
       fill: CHART_COLORS[index % CHART_COLORS.length]
     }));
-  }, [projects, commitsData]);
+  }, [projects, filteredCommits]);
 
-  // Get contributor stats for bar chart
+  // Update the contributorStats calculation
   const contributorStats = useMemo(() => {
-    if (!commitsData?.commits) return [];
     return contributors
       .map(author => ({
         name: author,
-        commits: commitsData.commits.filter(commit => commit.author_name === author).length
+        commits: filteredCommits.filter(commit => commit.author_name === author).length
       }))
-      .sort((a, b) => b.commits - a.commits); // Sort in descending order by commit count
-  }, [contributors, commitsData]);
+      .sort((a, b) => b.commits - a.commits);
+  }, [contributors, filteredCommits]);
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -357,7 +365,7 @@ export default function ActivityPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className='text-2xl font-bold'>{commitsData.commits.length}</div>
+                    <div className='text-2xl font-bold'>{filteredCommits.length}</div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -367,7 +375,9 @@ export default function ActivityPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className='text-2xl font-bold'>{contributors.length}</div>
+                    <div className='text-2xl font-bold'>
+                      {new Set(filteredCommits.map(c => c.author_name)).size}
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -567,7 +577,7 @@ export default function ActivityPage() {
                 }, {} as Record<string, Commit[]>) || {}
             ).map(([date, dayCommits]) => (
               <Card key={date}>
-                <CardHeader className="bg-muted border-b">
+                <CardHeader>
                   <CardTitle className="text-lg">{date}</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">

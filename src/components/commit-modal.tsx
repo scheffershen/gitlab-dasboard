@@ -62,19 +62,24 @@ export default function CommitModal({ isOpen, onClose, projectId, commitId }: Co
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className={`${isFullscreen ? 'w-screen h-screen max-w-none m-0' : 'max-w-4xl'}`}>
         <DialogHeader>
-          <div className="flex justify-between items-center">
-            <DialogTitle>Commit Details</DialogTitle>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsFullscreen(!isFullscreen)}
-            >
-              {isFullscreen ? (
-                <ArrowsPointingInIcon className="h-5 w-5" />
-              ) : (
-                <ArrowsPointingOutIcon className="h-5 w-5" />
-              )}
-            </Button>
+          <div className="flex items-center">
+            <div className="flex-none">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsFullscreen(!isFullscreen)}
+              >
+                {isFullscreen ? (
+                  <ArrowsPointingInIcon className="h-5 w-5" />
+                ) : (
+                  <ArrowsPointingOutIcon className="h-5 w-5" />
+                )}
+              </Button>
+            </div>
+            <DialogTitle className="flex-1 text-center">
+              Commit Details
+            </DialogTitle>
+            <div className="flex-none w-10"></div>
           </div>
         </DialogHeader>
 
