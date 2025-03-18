@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Link from 'next/link';
 import PageContainer from '@/components/layout/page-container';
@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowsPointingInIcon, ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
 import { buttonVariants } from '@/components/ui/button';
 import CommitModal from '@/components/commit-modal';
-import { PieChart, Pie, Label, ViewBox } from 'recharts';
+import { PieChart, Pie, Label } from 'recharts';
 import { BarChart, Bar, XAxis, CartesianGrid, Tooltip, YAxis } from 'recharts';
 
 const PERIOD_OPTIONS = [
@@ -29,92 +29,27 @@ const PERIOD_OPTIONS = [
   { label: '2 years', value: '730' }
 ];
 
-interface Commit {
-  id: string;
-  project_id: number;
-  project_name: string;
-  author_name: string;
-  created_at: string;
-  title: string;
-  branch_name: string;
-  is_default_branch: boolean;
-}
-
-interface CommitData {
-  commits: Commit[];
-  timestamp: string;
-}
-
-interface PieChartViewBox {
-  cx: number;
-  cy: number;
-  innerRadius: number;
-  outerRadius: number;
-  startAngle: number;
-  endAngle: number;
-}
-
 interface Project {
   id: number;
   name: string;
-  value: number;
+  default_branch?: string;
 }
 
-interface Contributor {
-  name: string;
-  commits: number;
+interface CommitData {
+  commits: any[];
+  timestamp: string;
 }
 
 export default function ActivityPage() {
   const [period, setPeriod] = useState('7');
   const [loading, setLoading] = useState(false);
   const [commitsData, setCommitsData] = useState<CommitData | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState('all');
   const [selectedCommit, setSelectedCommit] = useState<{projectId: string, commitId: string} | null>(null);
   const [showJsonModal, setShowJsonModal] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [selectedContributor, setSelectedContributor] = useState('all');
 
-  // Get unique projects from commits
-  const projects = useMemo(() => {
-    if (!commitsData?.commits) return [];
-    const uniqueProjects = new Map();
-    commitsData.commits.forEach(commit => {
-      if (!uniqueProjects.has(commit.project_id)) {
-        uniqueProjects.set(commit.project_id, {
-          id: commit.project_id,
-          name: commit.project_name,
-          value: 0
-        });
-      }
-    });
-    return Array.from(uniqueProjects.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [commitsData]);
-
-  // Get unique contributors from commits
-  const contributors = useMemo(() => {
-    if (!commitsData?.commits) return [];
-    const uniqueContributors = new Set(commitsData.commits.map(commit => commit.author_name));
-    return Array.from(uniqueContributors).sort();
-  }, [commitsData]);
-
-  // Get project stats for pie chart
-  const projectStats = useMemo(() => {
-    if (!commitsData?.commits) return [];
-    return projects.map(project => ({
-      ...project,
-      value: commitsData.commits.filter(commit => commit.project_id === project.id).length
-    }));
-  }, [projects, commitsData]);
-
-  // Get contributor stats for bar chart
-  const contributorStats = useMemo(() => {
-    if (!commitsData?.commits) return [];
-    return contributors.map(author => ({
-      name: author,
-      commits: commitsData.commits.filter(commit => commit.author_name === author).length
-    }));
-  }, [contributors, commitsData]);
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -194,13 +129,14 @@ export default function ActivityPage() {
                 branchesResponse.data.map(async (branch: any) => {
                   const commitsResponse = await api.get(`/api/v4/projects/${project.id}/repository/commits`, {
                     params: {
-                      ref_name: branch.name,
+                      ref_name: branch.name, // Specify the branch
                       since: startDate.toISOString(),
                       until: endDate.toISOString(),
                       per_page: 100
                     }
                   })
                   
+                  // Add project and branch info to each commit
                   return commitsResponse.data.map((commit: any) => ({
                     ...commit,
                     project_name: project.name,
@@ -211,6 +147,7 @@ export default function ActivityPage() {
                 })
               )
 
+              // Flatten commits from all branches and remove duplicates by commit ID
               return Array.from(
                 new Map(
                   branchCommits.flat().map(commit => [commit.id, commit])
@@ -223,6 +160,7 @@ export default function ActivityPage() {
           })
         )
 
+        // Merge and sort all commits chronologically
         const allCommits = projectCommits
           .flat()
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -247,8 +185,68 @@ export default function ActivityPage() {
 
   // Add this useEffect after the existing ones
   useEffect(() => {
-    handleSubmit();
-  }, [selectedProject, period, selectedContributor]);
+    async function fetchProjects() {
+      try {
+        const api = axios.create({
+          baseURL: process.env.NEXT_PUBLIC_GITLAB_URL,
+          headers: {
+            'PRIVATE-TOKEN': process.env.NEXT_PUBLIC_GITLAB_TOKEN
+          }
+        })
+
+        const projectsResponse = await api.get('/api/v4/projects', {
+          params: { membership: true, per_page: 100 }
+        })
+
+        const sortedProjects = projectsResponse.data
+          .map((p: any) => ({ id: p.id, name: p.name }))
+          .sort((a: Project, b: Project) => a.name.localeCompare(b.name))
+
+        setProjects(sortedProjects)
+      } catch (error) {
+        console.error('Failed to fetch projects:', error)
+      }
+    }
+
+    fetchProjects()
+  }, [])
+
+  // Add this function to process contributor data
+  const getContributorStats = (commits: any[]) => {
+    const stats = commits.reduce((acc, commit) => {
+      const author = commit.author_name
+      acc[author] = (acc[author] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    // Sort by commit count descending and take top 10
+    const topContributors = Object.entries(stats)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 10)
+
+    return {
+      labels: topContributors.map(([name]) => name),
+      data: topContributors.map(([, count]) => count),
+    }
+  }
+
+  // Add this function next to getContributorStats
+  const getProjectStats = (commits: any[]) => {
+    const stats = commits.reduce((acc, commit) => {
+      const project = commit.project_name
+      acc[project] = (acc[project] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
+
+    const topProjects = Object.entries(stats)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
+      .slice(0, 10)
+
+    return {
+      labels: topProjects.map(([name]) => name),
+      data: topProjects.map(([, count]) => count),
+    }
+  }
 
   return (
     <PageContainer>
@@ -290,24 +288,14 @@ export default function ActivityPage() {
                 </SelectContent>
               </Select>
 
-              <Select value={selectedContributor} onValueChange={setSelectedContributor}>
-                <SelectTrigger>
-                  <SelectValue placeholder='Select contributor' />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='all'>All contributors</SelectItem>
-                  {contributors.map((contributor) => (
-                    <SelectItem key={contributor} value={contributor}>
-                      {contributor}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Button onClick={handleSubmit} disabled={loading}>
+                {loading ? 'Loading...' : 'Update Data'}
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        {!loading && commitsData?.commits && commitsData.commits.length > 0 && (
+        {!loading && commitsData?.commits.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Overview</CardTitle>
@@ -331,7 +319,7 @@ export default function ActivityPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className='text-2xl font-bold'>{contributors.length}</div>
+                    <div className='text-2xl font-bold'>{new Set(commitsData.commits.map(c => c.author_name)).size}</div>
                   </CardContent>
                 </Card>
               </div>
@@ -339,7 +327,7 @@ export default function ActivityPage() {
           </Card>              
         )}
 
-        {!loading && commitsData?.commits && commitsData.commits.length > 0 && (
+        {!loading && commitsData?.commits.length ? (
           <Card>
             <CardHeader>
               <CardTitle>Project & Contributor Statistics</CardTitle>
@@ -354,7 +342,22 @@ export default function ActivityPage() {
                   <div className="h-full">
                     <PieChart width={400} height={300}>
                       <Pie
-                        data={projectStats}
+                        data={getProjectStats(commitsData.commits).labels.map((label, index) => ({
+                          name: label,
+                          value: getProjectStats(commitsData.commits).data[index],
+                          fill: [
+                            'var(--chart-1)',
+                            'var(--chart-2)',
+                            'var(--chart-3)',
+                            'var(--chart-4)',
+                            'var(--chart-5)',
+                            'var(--chart-6)',
+                            'var(--chart-7)',
+                            'var(--chart-8)',
+                            'var(--chart-9)',
+                            'var(--chart-10)',
+                          ][index]
+                        }))}
                         dataKey="value"
                         nameKey="name"
                         cx="50%"
@@ -364,9 +367,8 @@ export default function ActivityPage() {
                         strokeWidth={5}
                       >
                         <Label
-                          content={({ viewBox }: { viewBox: ViewBox }) => {
-                            if (!viewBox) return null;
-                            const total = projectStats.reduce((acc, project) => acc + project.value, 0);
+                          content={({ viewBox }) => {
+                            const total = getProjectStats(commitsData.commits).data.reduce((a, b) => a + b, 0);
                             return (
                               <text
                                 x={viewBox.cx}
@@ -406,7 +408,19 @@ export default function ActivityPage() {
                     <BarChart
                       width={400}
                       height={250}
-                      data={contributorStats}
+                      data={Object.entries(
+                        commitsData.commits.reduce((acc, commit) => {
+                          const author = commit.author_name;
+                          acc[author] = (acc[author] || 0) + 1;
+                          return acc;
+                        }, {} as Record<string, number>)
+                      )
+                        .sort(([, a], [, b]) => (b as number) - (a as number))
+                        .slice(0, 10)
+                        .map(([name, count]) => ({
+                          name,
+                          commits: count
+                        }))}
                       layout="vertical"
                       margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
                     >
@@ -458,7 +472,7 @@ export default function ActivityPage() {
               </div>
             </CardContent>
           </Card>
-        )}
+        ) : null}
         
         {/* Commits Display */}
         {loading ? (
@@ -472,39 +486,37 @@ export default function ActivityPage() {
         ) : commitsData?.commits.length ? (
           <div className="space-y-6">
             {Object.entries(
-              commitsData?.commits
-                .filter(commit => selectedContributor === 'all' || commit.author_name === selectedContributor)
-                .reduce((acc, commit) => {
-                  const commitDate = new Date(commit.created_at);
-                  const today = new Date();
-                  const yesterday = new Date();
-                  yesterday.setDate(yesterday.getDate() - 1);
+              commitsData.commits.reduce((acc, commit) => {
+                const commitDate = new Date(commit.created_at);
+                const today = new Date();
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
 
-                  let dateLabel;
-                  if (
-                    commitDate.getDate() === today.getDate() &&
-                    commitDate.getMonth() === today.getMonth() &&
-                    commitDate.getFullYear() === today.getFullYear()
-                  ) {
-                    dateLabel = 'Today';
-                  } else if (
-                    commitDate.getDate() === yesterday.getDate() &&
-                    commitDate.getMonth() === yesterday.getMonth() &&
-                    commitDate.getFullYear() === yesterday.getFullYear()
-                  ) {
-                    dateLabel = 'Yesterday';
-                  } else {
-                    dateLabel = commitDate.toLocaleDateString('en-US', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric'
-                    });
-                  }
+                let dateLabel;
+                if (
+                  commitDate.getDate() === today.getDate() &&
+                  commitDate.getMonth() === today.getMonth() &&
+                  commitDate.getFullYear() === today.getFullYear()
+                ) {
+                  dateLabel = 'Today';
+                } else if (
+                  commitDate.getDate() === yesterday.getDate() &&
+                  commitDate.getMonth() === yesterday.getMonth() &&
+                  commitDate.getFullYear() === yesterday.getFullYear()
+                ) {
+                  dateLabel = 'Yesterday';
+                } else {
+                  dateLabel = commitDate.toLocaleDateString('en-US', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  });
+                }
 
-                  if (!acc[dateLabel]) acc[dateLabel] = [];
-                  acc[dateLabel].push(commit);
-                  return acc;
-                }, {} as Record<string, Commit[]>) || {}
+                if (!acc[dateLabel]) acc[dateLabel] = [];
+                acc[dateLabel].push(commit);
+                return acc;
+              }, {} as Record<string, typeof commitsData.commits>)
             ).map(([date, dayCommits]) => (
               <Card key={date}>
                 <CardHeader className="bg-muted border-b">
