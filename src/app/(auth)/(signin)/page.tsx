@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import SignInViewPage from '@/features/auth/components/sigin-view';
+import SignInView from '@/features/auth/components/sign-in-view';
 
 export const metadata: Metadata = {
   title: 'Authentication | Sign In',
@@ -26,5 +26,5 @@ export default async function Page() {
     // Keep using fallback value if fetch fails
   }
 
-  return <SignInViewPage stars={stars} />;
+  return <SignInView stars={stars} />;
 }

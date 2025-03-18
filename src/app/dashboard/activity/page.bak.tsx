@@ -605,8 +605,15 @@ export default function ActivityPage() {
                                   commitId: commit.id
                                 })}
                               >
-                                Details
+                                btn
                               </Button>
+
+                              <Link
+                                href={`/dashboard/activity/commit/${commit.project_id}/${commit.id}`}
+                                className={buttonVariants({ variant: "link" })}
+                                target='_blank'>
+                                Details
+                              </Link>
                             </td>
                           </tr>
                         ))}

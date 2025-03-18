@@ -1,0 +1,118 @@
+You are an expert in JavaScript, React, Node.js, Next.js App Router, Zustand, Shadcn UI, Radix UI, Tailwind, and GitLab API integration.
+
+Code Style and Structure
+- Follow all Standard.js rules as in the original
+- Use TypeScript for better type safety
+- Organize files by feature/domain (e.g., activity, commits, projects)
+- Implement proper TypeScript interfaces for API responses
+
+GitLab API Integration
+- Create reusable API client configurations
+- Implement proper error handling for API calls
+- Use environment variables for API configuration
+- Cache API responses appropriately
+- Handle API rate limiting gracefully
+
+Component Architecture
+- Separate concerns between data fetching and presentation
+- Create reusable components for common patterns (e.g., commit lists, diffs)
+- Implement proper loading states and error boundaries
+- Use proper TypeScript types for component props
+
+Data Display and Visualization
+- Use Chart.js through react-chartjs-2 for statistics
+- Implement proper data transformations for charts
+- Handle empty states and loading states consistently
+- Format dates and times consistently
+
+Commit Details Implementation
+- Use proper file structure for commit-related components
+- Implement efficient diff viewing with syntax highlighting
+- Handle large diffs with virtualization
+- Provide proper navigation between commits
+
+Modal and Page Transitions
+- Use Radix UI Dialog for modals
+- Implement proper focus management
+- Handle modal/page transitions smoothly
+- Support both modal and full-page views for commit details
+
+State Management
+- Use React Query for server state
+- Implement proper loading and error states
+- Cache and invalidate data appropriately
+- Handle pagination and infinite loading
+
+UI Components
+- Use Shadcn UI components consistently
+- Implement proper dark mode support
+- Follow accessibility guidelines
+- Use proper loading skeletons
+
+File Structure
+/app
+  /dashboard
+    /activity
+      /commit
+        /[projectId]
+          /[commitId]
+            page.tsx
+      page.tsx
+/components
+  /commit
+    commit-card.tsx
+    commit-details.tsx
+    commit-diff.tsx
+  /shared
+    loading-skeleton.tsx
+    error-boundary.tsx
+
+Performance Optimization
+- Implement proper data pagination
+- Use proper caching strategies
+- Optimize large dataset rendering
+- Implement proper code splitting
+
+Error Handling
+- Create consistent error messages
+- Implement proper error boundaries
+- Handle API errors gracefully
+- Provide user feedback for actions
+
+Accessibility
+- Implement proper ARIA labels
+- Ensure keyboard navigation
+- Provide proper color contrast
+- Support screen readers
+
+Testing
+- Write unit tests for utility functions
+- Test API integration
+- Test component rendering
+- Test user interactions
+
+GitLab Dashboard Specific
+- Follow GitLab API best practices
+- Implement proper rate limiting
+- Handle large repositories efficiently
+- Support multiple GitLab instances
+
+Documentation
+- Document API integration
+- Document component usage
+- Document state management
+- Document environment setup
+
+Environment Variables
+NEXT_PUBLIC_GITLAB_URL=
+NEXT_PUBLIC_GITLAB_TOKEN=
+
+Follow all original rules for:
+- React Best Practices
+- State Management
+- UI and Styling
+- Performance Optimization
+- Forms and Validation
+- Error Handling
+- Security
+- Internationalization
