@@ -16,6 +16,12 @@ import { buttonVariants } from '@/components/ui/button';
 import CommitModal from '@/components/commit-modal';
 import { PieChart, Pie, Label, ViewBox } from 'recharts';
 import { BarChart, Bar, XAxis, CartesianGrid, Tooltip, YAxis } from 'recharts';
+import {
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent
+} from '@/components/ui/chart';
 
 const PERIOD_OPTIONS = [
   { label: '24 hours', value: '1' },
@@ -65,6 +71,33 @@ interface Contributor {
   commits: number;
 }
 
+const CHART_COLORS = [
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+  'var(--chart-6)',
+  'var(--chart-7)',
+  'var(--chart-8)',
+  'var(--chart-9)',
+  'var(--chart-10)',
+];
+
+const chartConfig = {
+  commits: {
+    label: 'Commits'
+  },
+  project: {
+    label: 'Project',
+    color: 'var(--chart-1)'
+  },
+  contributor: {
+    label: 'Contributor',
+    color: 'var(--chart-2)'
+  }
+} satisfies ChartConfig;
+
 export default function ActivityPage() {
   const [period, setPeriod] = useState('7');
   const [loading, setLoading] = useState(false);
@@ -101,9 +134,10 @@ export default function ActivityPage() {
   // Get project stats for pie chart
   const projectStats = useMemo(() => {
     if (!commitsData?.commits) return [];
-    return projects.map(project => ({
+    return projects.map((project, index) => ({
       ...project,
-      value: commitsData.commits.filter(commit => commit.project_id === project.id).length
+      value: commitsData.commits.filter(commit => commit.project_id === project.id).length,
+      fill: CHART_COLORS[index % CHART_COLORS.length]
     }));
   }, [projects, commitsData]);
 
@@ -347,114 +381,129 @@ export default function ActivityPage() {
             <CardContent>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Pie Chart - Projects */}
-                <div className="h-[300px] relative p-4 bg-muted rounded-lg">
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                    Commits Distribution by Project
-                  </h3>
-                  <div className="h-full">
-                    <PieChart width={400} height={300}>
-                      <Pie
-                        data={projectStats}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        strokeWidth={5}
-                      >
-                        <Label
-                          content={({ viewBox }: { viewBox: ViewBox }) => {
-                            if (!viewBox) return null;
-                            const total = projectStats.reduce((acc, project) => acc + project.value, 0);
-                            return (
-                              <text
-                                x={viewBox.cx}
-                                y={viewBox.cy}
-                                textAnchor="middle"
-                                dominantBaseline="middle"
-                              >
-                                <tspan
-                                  x={viewBox.cx}
-                                  y={viewBox.cy}
-                                  className="fill-foreground text-3xl font-bold"
-                                >
-                                  {total}
-                                </tspan>
-                                <tspan
-                                  x={viewBox.cx}
-                                  y={viewBox.cy + 24}
-                                  className="fill-muted-foreground"
-                                >
-                                  Commits
-                                </tspan>
-                              </text>
-                            );
-                          }}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Commits Distribution by Project</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-1 pb-0">
+                    <ChartContainer
+                      config={chartConfig}
+                      className="mx-auto aspect-square max-h-[300px]"
+                    >
+                      <PieChart>
+                        <ChartTooltip
+                          cursor={false}
+                          content={<ChartTooltipContent hideLabel />}
                         />
-                      </Pie>
-                    </PieChart>
-                  </div>
-                </div>
+                        <Pie
+                          data={projectStats}
+                          dataKey="value"
+                          nameKey="name"
+                          innerRadius={60}
+                          outerRadius={100}
+                          strokeWidth={5}
+                        >
+                          <Label
+                            content={({ viewBox }) => {
+                              if (viewBox && 'cx' in viewBox && 'cy' in viewBox) {
+                                const total = projectStats.reduce((acc, project) => acc + project.value, 0);
+                                return (
+                                  <text
+                                    x={viewBox.cx}
+                                    y={viewBox.cy}
+                                    textAnchor="middle"
+                                    dominantBaseline="middle"
+                                  >
+                                    <tspan
+                                      x={viewBox.cx}
+                                      y={viewBox.cy}
+                                      className="fill-foreground text-3xl font-bold"
+                                    >
+                                      {total}
+                                    </tspan>
+                                    <tspan
+                                      x={viewBox.cx}
+                                      y={viewBox.cy + 24}
+                                      className="fill-muted-foreground"
+                                    >
+                                      Commits
+                                    </tspan>
+                                  </text>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                        </Pie>
+                      </PieChart>
+                    </ChartContainer>
+                  </CardContent>
+                </Card>
 
                 {/* Bar Chart - Contributors */}
-                <div className="h-[300px] relative p-4 bg-muted rounded-lg">
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                    Commits by Contributor
-                  </h3>
-                  <div className="h-full">
-                    <BarChart
-                      width={400}
-                      height={250}
-                      data={contributorStats}
-                      layout="vertical"
-                      margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Commits by Contributor</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-1 pb-0">
+                    <ChartContainer
+                      config={chartConfig}
+                      className="mx-auto h-[300px]"
                     >
-                      <CartesianGrid horizontal={false} stroke="var(--muted-foreground)" opacity={0.1} />
-                      <XAxis type="number" />
-                      <YAxis
-                        type="category"
-                        dataKey="name"
-                        width={120}
-                        tick={{ fontSize: 11 }}
-                      />
-                      <Tooltip
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length) {
-                            return (
-                              <div className="rounded-lg border bg-background p-2 shadow-sm">
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div className="flex flex-col">
-                                    <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                      Author
-                                    </span>
-                                    <span className="font-bold text-sm">
-                                      {payload[0].payload.name}
-                                    </span>
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                      Commits
-                                    </span>
-                                    <span className="font-bold text-sm">
-                                      {payload[0].value}
-                                    </span>
+                      <BarChart
+                        width={400}
+                        height={250}
+                        data={contributorStats}
+                        layout="vertical"
+                        margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
+                      >
+                        <CartesianGrid horizontal={false} stroke="var(--muted-foreground)" opacity={0.1} />
+                        <XAxis type="number" />
+                        <YAxis
+                          type="category"
+                          dataKey="name"
+                          width={120}
+                          tick={{ fontSize: 11 }}
+                        />
+                        <ChartTooltip
+                          cursor={false}
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="rounded-lg border bg-background p-2 shadow-sm">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div className="flex flex-col">
+                                      <span className="text-[0.70rem] uppercase text-muted-foreground">
+                                        Author
+                                      </span>
+                                      <span className="font-bold text-sm">
+                                        {payload[0].payload.name}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className="text-[0.70rem] uppercase text-muted-foreground">
+                                        Commits
+                                      </span>
+                                      <span className="font-bold text-sm">
+                                        {payload[0].value}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      <Bar
-                        dataKey="commits"
-                        fill="var(--chart-1)"
-                        radius={[4, 4, 4, 4]}
-                      />
-                    </BarChart>
-                  </div>
-                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
+                        <Bar
+                          dataKey="commits"
+                          fill="var(--chart-1)"
+                          radius={[4, 4, 4, 4]}
+                        />
+                      </BarChart>
+                    </ChartContainer>
+                  </CardContent>
+                </Card>
               </div>
             </CardContent>
           </Card>
