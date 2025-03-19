@@ -20,14 +20,6 @@ export const navItems: NavItem[] = [
     isActive: false,
     shortcut: ['a', 'a'],
     items: [] // Empty array as there are no child items for Dashboard
-  },
-  {
-    title: 'Projects',
-    url: '/dashboard/project',
-    icon: 'product',
-    isActive: false,
-    shortcut: ['a', 'a'],
-    items: [] // Empty array as there are no child items for Dashboard
   }
 ];
 

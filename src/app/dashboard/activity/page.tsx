@@ -395,8 +395,21 @@ export default function ActivityPage() {
 
         {!loading && commitsData?.commits && commitsData.commits.length > 0 && (
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Overview</CardTitle>
+              {selectedContributor !== 'all' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedDate('Période Sélectionnée');
+                    setShowReportModal(true);
+                    generateDailyReport('Période Sélectionnée', filteredCommits);
+                  }}
+                >
+                  Générer Rapport
+                </Button>
+              )}
             </CardHeader>
             <CardContent>          
               <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-2'>
@@ -621,7 +634,7 @@ export default function ActivityPage() {
               <Card key={date}>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">{date}</CardTitle>
-                  {selectedProject !== 'all' && selectedContributor !== 'all' && (
+                  {selectedContributor !== 'all' && (
                     <Button
                       variant="outline"
                       size="sm"
