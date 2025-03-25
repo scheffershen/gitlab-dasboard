@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Loader2 } from 'lucide-react';
+import { toast } from "sonner";
 
 interface CommitModalProps {
   isOpen: boolean;
@@ -28,13 +30,17 @@ export default function CommitModal({ isOpen, onClose, projectId, commitId }: Co
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(true);
   const [selectedDiffIndex, setSelectedDiffIndex] = useState<number>(0);
+  const [analysis, setAnalysis] = useState<any>(null);
+  const [analyzingCommit, setAnalyzingCommit] = useState(false);
+  const [isUpdatingMessage, setIsUpdatingMessage] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
 
     async function fetchCommitDetails() {
       try {
-        const api = axios.create({
+        // Read-only API client
+        const readApi = axios.create({
           baseURL: process.env.NEXT_PUBLIC_GITLAB_URL,
           headers: {
             'PRIVATE-TOKEN': process.env.NEXT_PUBLIC_GITLAB_TOKEN
@@ -42,12 +48,37 @@ export default function CommitModal({ isOpen, onClose, projectId, commitId }: Co
         });
 
         const [commitResponse, diffResponse] = await Promise.all([
-          api.get(`/api/v4/projects/${projectId}/repository/commits/${commitId}`),
-          api.get(`/api/v4/projects/${projectId}/repository/commits/${commitId}/diff`)
+          readApi.get(`/api/v4/projects/${projectId}/repository/commits/${commitId}`),
+          readApi.get(`/api/v4/projects/${projectId}/repository/commits/${commitId}/diff`)
         ]);
 
         setCommit(commitResponse.data);
         setDiffs(diffResponse.data);
+
+        // Analyze commit
+        setAnalyzingCommit(true);
+        try {
+          const analysisResponse = await fetch('/api/analyze-commit', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              title: commitResponse.data.title,
+              message: commitResponse.data.message,
+              changes: diffResponse.data.length
+            }),
+          });
+          
+          if (!analysisResponse.ok) throw new Error('Failed to analyze commit');
+          const analysisData = await analysisResponse.json();
+          setAnalysis(analysisData);
+        } catch (err) {
+          console.error('Failed to analyze commit:', err);
+        } finally {
+          setAnalyzingCommit(false);
+        }
+
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch commit details');
       } finally {
@@ -57,6 +88,84 @@ export default function CommitModal({ isOpen, onClose, projectId, commitId }: Co
 
     fetchCommitDetails();
   }, [isOpen, projectId, commitId]);
+
+  const updateCommitMessage = async (newMessage: string) => {
+    setIsUpdatingMessage(true);
+    try {
+      // Write API client with YI token
+      const writeApi = axios.create({
+        baseURL: process.env.NEXT_PUBLIC_GITLAB_URL,
+        headers: {
+          'PRIVATE-TOKEN': process.env.NEXT_PUBLIC_GITLAB_TOKEN_YI,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const endpointUrl = `${process.env.NEXT_PUBLIC_GITLAB_URL}/api/v4/projects/${projectId}/repository/commits/${commitId}/cherry_pick`;
+      
+      await writeApi.post(`/api/v4/projects/${projectId}/repository/commits/${commitId}/cherry_pick`, {
+        branch: commit.branch_name || 'main',
+        message: newMessage
+      });
+
+      toast.success("Message du commit mis à jour avec succès!", {
+        duration: 60000,
+      });
+      
+      // Refresh commit details using read token
+      const readApi = axios.create({
+        baseURL: process.env.NEXT_PUBLIC_GITLAB_URL,
+        headers: {
+          'PRIVATE-TOKEN': process.env.NEXT_PUBLIC_GITLAB_TOKEN
+        }
+      });
+      const commitResponse = await readApi.get(`/api/v4/projects/${projectId}/repository/commits/${commitId}`);
+      setCommit(commitResponse.data);
+    } catch (error: any) {
+      console.error('Failed to update commit message:', error);
+      
+      const gitlabError = error.response?.data?.message || error.response?.data?.error;
+      const endpointUrl = `${process.env.NEXT_PUBLIC_GITLAB_URL}/api/v4/projects/${projectId}/repository/commits/${commitId}/cherry_pick`;
+      
+      if (error.response?.status === 404) {
+        toast.error(
+          `Erreur 404: L'endpoint de mise à jour n'a pas été trouvé.\n` +
+          `URL: ${endpointUrl}\n` +
+          `Vérifiez votre version de GitLab.`, 
+          {
+            duration: 60000,
+          }
+        );
+      } else if (error.response?.status === 403) {
+        toast.error(
+          `Permission refusée pour: ${endpointUrl}\n\n` +
+          "Pour mettre à jour les messages de commit, vous avez besoin de:\n" +
+          "1. Être Maintainer ou Owner du projet\n" +
+          "2. Avoir un token avec l'accès api write_repository\n" +
+          "3. La protection de branche doit autoriser les push",
+          {
+            duration: 60000,
+          }
+        );
+      } else if (gitlabError) {
+        toast.error(
+          `Erreur GitLab pour ${endpointUrl}:\n${gitlabError}`, 
+          {
+            duration: 60000,
+          }
+        );
+      } else {
+        toast.error(
+          `Échec de la mise à jour du message pour ${endpointUrl}.\nVérifiez vos permissions.`, 
+          {
+            duration: 60000,
+          }
+        );
+      }
+    } finally {
+      setIsUpdatingMessage(false);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -100,24 +209,97 @@ export default function CommitModal({ isOpen, onClose, projectId, commitId }: Co
               <div className="space-y-6">
                 <Card>
                   <CardContent className="pt-6">
-                    <h3 className="text-lg font-medium">{commit.title}</h3>
-                    <p className="mt-2 text-muted-foreground whitespace-pre-wrap">
-                      {commit.message}
-                    </p>
-                    <div className="mt-4 text-sm text-muted-foreground">
-                      <span>{commit.author_name}</span>
-                      <span className="mx-2">•</span>
-                      <span>{new Date(commit.created_at).toLocaleString()}</span>
+                    <div className="grid grid-cols-2 gap-6">
+                      {/* Left side - Commit Details */}
+                      <ScrollArea className="h-[400px] w-full">
+                        <div className="pr-4">
+                          <h3 className="text-lg font-medium">{commit.title}</h3>
+                          <p className="mt-2 text-muted-foreground whitespace-pre-wrap">
+                            {commit.message}
+                          </p>
+                          <div className="mt-4 text-sm text-muted-foreground">
+                            <span>{commit.author_name}</span>
+                            <span className="mx-2">•</span>
+                            <span>{new Date(commit.created_at).toLocaleString()}</span>
+                          </div>
+                          {commit.stats && (
+                            <div className="mt-4 flex space-x-4 text-sm">
+                              <Badge variant="secondary" className="text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                +{commit.stats.additions}
+                              </Badge>
+                              <Badge variant="destructive">-{commit.stats.deletions}</Badge>
+                              <Badge variant="outline">{commit.stats.total} changes</Badge>
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+
+                      {/* Right side - Analysis Section */}
+                      <ScrollArea className="h-[400px] w-full border-l">
+                        <div className="pl-6">
+                          <h4 className="text-sm font-medium mb-4 flex items-center gap-2">
+                            Commit Analysis
+                            {analyzingCommit && (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            )}
+                          </h4>
+                          
+                          {analysis && !analyzingCommit && (
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-2">
+                                <Badge 
+                                  variant={analysis.score >= 7 ? "secondary" : analysis.score >= 4 ? "outline" : "destructive"}
+                                  className={
+                                    analysis.score >= 7 
+                                      ? "text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                      : ""
+                                  }
+                                >
+                                  Score: {analysis.score}/10
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{analysis.analysis}</p>
+                              {analysis.betterCommitMessage && (
+                                <div className="text-sm mt-4">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <strong className="text-foreground">Suggested Commit Message:</strong>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        const parser = new DOMParser();
+                                        const doc = parser.parseFromString(analysis.betterCommitMessage, 'text/html');
+                                        const textContent = doc.body.textContent || '';
+                                        updateCommitMessage(textContent);
+                                      }}
+                                      disabled={isUpdatingMessage}
+                                    >
+                                      {isUpdatingMessage ? (
+                                        <>
+                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                          Mise à jour...
+                                        </>
+                                      ) : (
+                                        'Appliquer la suggestion'
+                                      )}
+                                    </Button>
+                                  </div>
+                                  <div 
+                                    className="mt-2 p-3 bg-muted rounded-md font-mono text-sm prose dark:prose-invert max-w-none"
+                                    dangerouslySetInnerHTML={{ 
+                                      __html: analysis.betterCommitMessage || '' 
+                                    }}
+                                  />
+                                  <p className="text-muted-foreground mt-2 text-xs">
+                                    {analysis.explanation}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
                     </div>
-                    {commit.stats && (
-                      <div className="mt-4 flex space-x-4 text-sm">
-                        <Badge variant="secondary" className="text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400">
-                          +{commit.stats.additions}
-                        </Badge>
-                        <Badge variant="destructive">-{commit.stats.deletions}</Badge>
-                        <Badge variant="outline">{commit.stats.total} changes</Badge>
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
 
