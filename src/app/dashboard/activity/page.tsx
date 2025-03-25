@@ -25,7 +25,7 @@ import {
 
 const PERIOD_OPTIONS = [
   { label: '24 hours', value: '1', default: true },
-  { label: '7 days', value: '7' },
+  { label: '7 days', value: '7'},
   { label: '14 days', value: '14' },
   { label: '30 days', value: '30' },
   { label: '60 days', value: '60' },
@@ -99,7 +99,7 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export default function ActivityPage() {
-  const [period, setPeriod] = useState('7');
+  const [period, setPeriod] = useState('1');
   const [loading, setLoading] = useState(false);
   const [commitsData, setCommitsData] = useState<CommitData | null>(null);
   const [selectedProject, setSelectedProject] = useState('all');

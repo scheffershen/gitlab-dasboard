@@ -26,7 +26,7 @@ export default function CommitModal({ isOpen, onClose, projectId, commitId }: Co
   const [diffs, setDiffs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(true);
   const [selectedDiffIndex, setSelectedDiffIndex] = useState<number>(0);
 
   useEffect(() => {
@@ -111,7 +111,9 @@ export default function CommitModal({ isOpen, onClose, projectId, commitId }: Co
                     </div>
                     {commit.stats && (
                       <div className="mt-4 flex space-x-4 text-sm">
-                        <Badge variant="success">+{commit.stats.additions}</Badge>
+                        <Badge variant="secondary" className="text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400">
+                          +{commit.stats.additions}
+                        </Badge>
                         <Badge variant="destructive">-{commit.stats.deletions}</Badge>
                         <Badge variant="outline">{commit.stats.total} changes</Badge>
                       </div>
@@ -161,7 +163,9 @@ export default function CommitModal({ isOpen, onClose, projectId, commitId }: Co
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2">
                               {diffs[selectedDiffIndex].new_file && (
-                                <Badge variant="success">Added</Badge>
+                                <Badge variant="secondary" className="text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                  Added
+                                </Badge>
                               )}
                               {diffs[selectedDiffIndex].deleted_file && (
                                 <Badge variant="destructive">Deleted</Badge>
@@ -180,8 +184,32 @@ export default function CommitModal({ isOpen, onClose, projectId, commitId }: Co
                         </div>
 
                         <ScrollArea className="flex-1">
-                          <pre className="text-sm font-mono bg-muted p-4 rounded">
-                            {diffs[selectedDiffIndex].diff}
+                          <pre className="text-sm font-mono p-4 rounded">
+                            {diffs[selectedDiffIndex].diff.split('\n').map((line: string, i: number) => {
+                              const isAddition = line.startsWith('+');
+                              const isDeletion = line.startsWith('-');
+                              const lineNumber = i + 1;
+
+                              return (
+                                <div 
+                                  key={i} 
+                                  className={`flex ${
+                                    isAddition 
+                                      ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' 
+                                      : isDeletion 
+                                        ? 'bg-destructive/10 text-destructive dark:text-red-400'
+                                        : ''
+                                  }`}
+                                >
+                                  <span className="w-12 text-right pr-4 select-none text-muted-foreground border-r border-border mr-4">
+                                    {lineNumber}
+                                  </span>
+                                  <span className="flex-1 whitespace-pre">
+                                    {line}
+                                  </span>
+                                </div>
+                              );
+                            })}
                           </pre>
                         </ScrollArea>
                       </div>
