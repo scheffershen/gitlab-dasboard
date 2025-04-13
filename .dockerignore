@@ -1,0 +1,61 @@
+# Dependencies
+node_modules
+.pnpm-store
+.npm
+package-lock.json
+yarn.lock
+
+# Environment
+.env*
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Next.js
+.next
+out
+dist
+build
+
+# Debug & Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+logs
+*.log
+
+# Testing
+coverage
+.nyc_output
+__tests__
+__mocks__
+*.test.*
+*.spec.*
+
+# IDE & Editors
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+*.sublime-workspace
+*.sublime-project
+
+# Git & Version Control
+.git
+.gitignore
+.gitattributes
+.github
+.husky
+
+# Misc
+README.md
+CHANGELOG.md
+.dockerignore
+*.md
+.eslintrc*
+.prettierrc*
+.editorconfig
+tsconfig.tsbuildinfo

@@ -106,4 +106,87 @@ You should now be able to access the application at http://localhost:3000.
 > [!WARNING]
 > After cloning or forking the repository, be cautious when pulling or syncing with the latest changes, as this may result in breaking conflicts.
 
+## Docker Deployment
+
+### Prerequisites
+- Docker
+- Docker Compose
+
+### Production Deployment
+
+1. Clone the repository:
+```bash
+git clone https://github.com/Kiranism/next-shadcn-dashboard-starter.git
+```
+
+2. Create environment files:
+```bash
+cp env.example.txt .env.local
+```
+
+3. Update environment variables in `.env.local` with your production values.
+
+4. Build and run with Docker Compose:
+```bash
+# Build the images
+docker-compose build
+
+# Start the services in detached mode
+docker-compose up -d
+
+# Check logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+The application will be available at `http://localhost:3000`.
+
+### Docker Commands Reference
+
+```bash
+# Rebuild the container
+docker-compose build --no-cache
+
+# Restart services
+docker-compose restart
+
+# View running containers
+docker-compose ps
+
+# Remove all containers and volumes
+docker-compose down -v
+
+# Scale the service (if needed)
+docker-compose up -d --scale nextjs=2
+```
+
+### Container Structure
+```plaintext
+├── nextjs           # Main application container
+│   ├── Dockerfile   # Multi-stage build configuration
+│   └── .dockerignore# Files excluded from the build
+```
+
+### Environment Variables
+Make sure these environment variables are properly set in your production environment:
+- `AUTH_URL`
+- `AUTH_SECRET`
+- `AUTH_GITHUB_ID`
+- `AUTH_GITHUB_SECRET`
+- `NEXT_PUBLIC_GITLAB_URL`
+- `NEXT_PUBLIC_GITLAB_TOKEN`
+- `OPENAI_API_KEY`
+- `BACKEND_URL`
+- `ADMIN_EMAIL`
+- `ADMIN_PASSWORD`
+
+### Production Considerations
+- Use proper secrets management
+- Set up proper SSL/TLS termination
+- Configure appropriate logging
+- Set up monitoring and alerting
+- Use container orchestration for high availability
+
 Cheers! 🥂
