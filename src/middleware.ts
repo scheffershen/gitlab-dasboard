@@ -4,18 +4,37 @@
 
 import NextAuth from 'next-auth';
 import authConfig from '@/lib/auth.config';
+import createMiddleware from 'next-intl/middleware';
 
 const { auth } = NextAuth(authConfig);
 
-export default auth((req) => {
-  // Check if user is not authenticated
-  if (!req.auth) {
-    // Get base URL by removing the current path
-    const url = req.url.replace(req.nextUrl.pathname, '/');
-    // Redirect to base URL (login page)
-    return Response.redirect(url);
-  }
+// Create intl middleware
+const intlMiddleware = createMiddleware({
+  locales: ['en', 'fr'],
+  defaultLocale: 'en',
+  localePrefix: 'always' // URLs will always include locale
 });
 
-// Only run middleware on dashboard routes
-export const config = { matcher: ['/dashboard/:path*'] };
+// Combine both middlewares
+export default auth(async function middleware(req) {
+  // Protected routes check
+  if (req.nextUrl.pathname.startsWith('/dashboard')) {
+    if (!req.auth) {
+      const url = req.url.replace(req.nextUrl.pathname, '/');
+      return Response.redirect(url);
+    }
+  }
+  
+  // Handle internationalization
+  return intlMiddleware(req);
+});
+
+// Update matcher to handle both auth and i18n routes
+export const config = {
+  matcher: [
+    // Auth protected routes
+    '/dashboard/:path*',
+    // i18n routes (exclude api, static files etc)
+    '/((?!api|_next|.*\\..*).*)'
+  ]
+};

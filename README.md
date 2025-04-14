@@ -44,23 +44,30 @@ _If you are looking for a React admin dashboard starter, here is the [repo](http
 | [Kanban Board](https://next-shadcn-dashboard-starter.vercel.app/dashboard/kanban)     | A Drag n Drop task management board with dnd-kit and zustand to persist state locally.                                                                         |
 | [Not Found](https://next-shadcn-dashboard-starter.vercel.app/dashboard/notfound)      | Not Found Page Added in the root level                                                                                                                         |
 | -                                                                                     | -                                                                                                                                                              |
-
 ## Feature based organization
 
 ```plaintext
 src/
 ├── app/ # Next.js App Router directory
-│ ├── (auth)/ # Auth route group
-│ │ ├── (signin)/
-│ ├── (dashboard)/ # Dashboard route group
-│ │ ├── layout.tsx
-│ │ ├── loading.tsx
-│ │ └── page.tsx
-│ └── api/ # API routes
+│ ├──favicon.ico        # Stays at root
+│ ├── globals.css       # Stays at root
+│ ├── [locale]/ # Locale route group (en, fr)
+│ │ ├── (auth)/ # Auth route group
+│ │ │ ├── (signin)/
+│ │ ├── (dashboard)/ # Dashboard route group
+│ │ │ ├── layout.tsx
+│ │ │ ├── loading.tsx
+│ │ │ └── page.tsx
+│ │ └── api/ # API routes
+│
+├── messages/ # i18n translation files
+│ ├── en.json # English translations
+│ └── fr.json # French translations
 │
 ├── components/ # Shared components
 │ ├── ui/ # UI components (buttons, inputs, etc.)
-│ └── layout/ # Layout components (header, sidebar, etc.)
+│ ├── layout/ # Layout components (header, sidebar, etc.)
+│ └── language-switcher.tsx # Language selection component
 │
 ├── features/ # Feature-based modules
 │ ├── feature/
@@ -68,7 +75,7 @@ src/
 │ │ ├── actions/ # Server actions
 │ │ ├── schemas/ # Form validation schemas
 │ │ └── utils/ # Feature-specific utilities
-│ │
+│
 ├── lib/ # Core utilities and configurations
 │ ├── auth/ # Auth configuration
 │ ├── db/ # Database utilities
@@ -81,7 +88,84 @@ src/
 │ └── dashboard-store.ts
 │
 └── types/ # TypeScript types
-└── index.ts
+  └── index.ts
+```
+
+## Internationalization
+
+The application supports multiple languages (English and French) using `next-intl`:
+
+### Usage in Components
+
+```typescript
+// Server Components
+import { useTranslations } from 'next-intl';
+
+export default function MyComponent() {
+  const t = useTranslations('namespace');
+  return <h1>{t('title')}</h1>;
+}
+```
+
+### Language Switching
+
+The language can be switched using the language selector in the navigation bar. URLs will reflect the selected language:
+- English: `/en/dashboard`
+- French: `/fr/dashboard`
+
+### Translation Files
+
+Translations are stored in `src/messages/{locale}.json`:
+```json
+{
+  "auth": {
+    "signIn": {
+      "title": "GitLab Dashboard",
+      "description": "Please enter your email and password"
+    }
+  }
+}
+```
+
+### Middleware Configuration
+
+The application uses combined middleware for authentication and internationalization:
+- Protects dashboard routes
+- Handles locale routing
+- Maintains language preferences
+- Redirects unauthenticated users
+
+
+## Internationalization examples
+
+```
+// Any component
+import { useTranslations } from 'next-intl';
+
+export default function MyComponent() {
+  const t = useTranslations('namespace');
+  return <h1>{t('title')}</h1>;
+}
+```
+
+```
+// Server Component
+import { useLocale } from 'next-intl';
+
+export default function Page() {
+  const locale = useLocale();
+  // ...
+}
+
+// Client Component
+'use client';
+import { useParams } from 'next/navigation';
+
+export default function ClientComponent() {
+  const params = useParams();
+  const locale = params.locale;
+  // ...
+}
 ```
 
 ## Getting Started
