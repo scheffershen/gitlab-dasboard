@@ -5,20 +5,17 @@
 import NextAuth from 'next-auth';
 import authConfig from '@/lib/auth.config';
 import createMiddleware from 'next-intl/middleware';
+import {routing} from './i18n/routing';
 
 const { auth } = NextAuth(authConfig);
 
 // Create intl middleware
-const intlMiddleware = createMiddleware({
-  locales: ['en', 'fr'],
-  defaultLocale: 'en',
-  localePrefix: 'always' // URLs will always include locale
-});
+const intlMiddleware = createMiddleware(routing);
 
 // Combine both middlewares
 export default auth(async function middleware(req) {
   // Protected routes check
-  if (req.nextUrl.pathname.startsWith('/dashboard')) {
+  if (req.nextUrl.pathname.match(/^\/(en|fr)\/dashboard/)) {
     if (!req.auth) {
       const url = req.url.replace(req.nextUrl.pathname, '/');
       return Response.redirect(url);
@@ -33,7 +30,7 @@ export default auth(async function middleware(req) {
 export const config = {
   matcher: [
     // Auth protected routes
-    '/dashboard/:path*',
+    '/(en|fr)dashboard/:path*',
     // i18n routes (exclude api, static files etc)
     '/((?!api|_next|.*\\..*).*)'
   ]

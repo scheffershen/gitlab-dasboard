@@ -1,0 +1,8 @@
+{
+    "auth": {
+        "signIn": {
+            "title": "Tableau de bord GitLab",
+            "description": "Veuillez entrer votre email et votre mot de passe."
+        }
+    }
+}

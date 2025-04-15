@@ -1,0 +1,8 @@
+{
+    "auth": {
+        "signIn": {
+            "title": "GitLab Dashboard",
+            "description": "Please enter your email and password."
+        }
+    }
+}

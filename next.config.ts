@@ -1,9 +1,10 @@
 /** @type {import('next').NextConfig} */
+import createNextIntlPlugin from 'next-intl/plugin';
+ 
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
+ 
+/** @type {import('next').NextConfig} */
 const nextConfig = {
-  i18n: {
-    locales: ['en', 'fr'],
-    defaultLocale: 'en'
-  },
   images: {
     remotePatterns: [
       {
@@ -20,5 +21,6 @@ const nextConfig = {
   },
   transpilePackages: ['geist']
 };
+ 
+export default withNextIntl(nextConfig);
 
-module.exports = nextConfig;

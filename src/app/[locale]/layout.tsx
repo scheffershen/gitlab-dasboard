@@ -5,9 +5,7 @@ import type { Metadata } from 'next';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { Lato } from 'next/font/google';
 import NextTopLoader from 'nextjs-toploader';
-import './globals.css';
-import { NextIntlClientProvider } from 'next-intl';
-import { messages } from '@/messages';
+import '../globals.css';
 
 export const metadata: Metadata = {
   title: 'Next Shadcn',
@@ -20,27 +18,14 @@ const lato = Lato({
   display: 'swap'
 });
 
-export default function LocaleLayout({
-  children,
-  params: { locale }
+export default function RootLayout({
+  children
 }: {
-  children: React.ReactNode;
-  params: { locale: string };
+  children: React.ReactNode
 }) {
-  const session = await auth();
   return (
-    <html lang={locale} className={`${lato.className}`} suppressHydrationWarning>
-      <body className={'overflow-hidden'}>
-        <NextTopLoader showSpinner={false} />
-        <NuqsAdapter>
-          <NextIntlClientProvider locale={locale} messages={messages[locale]}>
-            <Providers session={session}>
-              <Toaster />
-              {children}
-            </Providers>
-          </NextIntlClientProvider>
-        </NuqsAdapter>
-      </body>
+    <html>
+      <body>{children}</body>
     </html>
-  );
+  )
 }

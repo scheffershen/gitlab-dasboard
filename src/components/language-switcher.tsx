@@ -18,15 +18,31 @@ const languages = {
 export default function LanguageSwitcher() {
   const pathname = usePathname();
   const router = useRouter();
+  
+  // Get current locale from URL
+  const currentLocale = pathname.split('/')[1] || 'en';
 
   return (
     <Select
+      defaultValue={currentLocale}
       onValueChange={(locale) => {
-        router.push(`/${locale}${pathname}`);
+        // Get current path segments
+        const segments = pathname.split('/');
+        // Remove current locale (always at position 1)
+        segments.splice(1, 1);
+        // Create new path with new locale
+        const newPath = `/${locale}${segments.join('/')}`;
+        // Push to router
+        router.push(newPath);
       }}
     >
       <SelectTrigger className="w-[140px]">
-        <SelectValue placeholder="Language 🌐" />
+        <SelectValue>
+          <span className="flex items-center gap-2">
+            <span>{languages[currentLocale].flag}</span>
+            <span>{languages[currentLocale].label}</span>
+          </span>
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
         {Object.entries(languages).map(([code, { flag, label }]) => (
