@@ -17,6 +17,7 @@ import { useTransition } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import * as z from 'zod'
+import { ArrowPathIcon } from '@heroicons/react/24/outline'
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Enter a valid email address' }),
@@ -39,13 +40,24 @@ export default function SignInForm() {
   })
 
   const onSubmit = async (data: SignInFormValues) => {
-    startTransition(() => {
-      signIn('credentials', {
-        email: data.email,
-        password: data.password,
-        callbackUrl: callbackUrl ?? '/dashboard'
-      })
-      toast.success('Signed in successfully!')
+    startTransition(async () => {
+      try {
+        const result = await signIn('credentials', {
+          email: data.email,
+          password: data.password,
+          callbackUrl: callbackUrl ?? '/dashboard',
+          redirect: false
+        })
+        
+        if (result?.error) {
+          toast.error('Invalid email or password')
+        } else {
+          toast.success('Signed in successfully!')
+          window.location.href = result?.url || '/dashboard'
+        }
+      } catch (error) {
+        toast.error('Something went wrong. Please try again.')
+      }
     })
   }
 
@@ -99,8 +111,20 @@ export default function SignInForm() {
         />
 
         <div className="flex flex-col gap-3">
-          <Button type="submit" variant="primary" className="w-full" disabled={loading}>
-            Login
+          <Button 
+            type="submit" 
+            variant="primary" 
+            className="w-full" 
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <ArrowPathIcon className="mr-2 h-4 w-4 animate-spin" />
+                Signing in...
+              </>
+            ) : (
+              'Login'
+            )}
           </Button>
         </div>
 
