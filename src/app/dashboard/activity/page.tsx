@@ -24,15 +24,15 @@ import {
 } from '@/components/ui/chart';
 
 const PERIOD_OPTIONS = [
-  { label: '24 hours', value: '1', default: true },
-  { label: '7 days', value: '7'},
-  { label: '14 days', value: '14' },
-  { label: '30 days', value: '30' },
-  { label: '60 days', value: '60' },
-  { label: '3 months', value: '90' },
-  { label: '6 months', value: '180' },
-  { label: '1 year', value: '365' },
-  { label: '2 years', value: '730' }
+  { label: '24 heures', value: '1', default: true },
+  { label: '7 jours', value: '7'},
+  { label: '14 jours', value: '14' },
+  { label: '30 jours', value: '30' },
+  { label: '60 jours', value: '60' },
+  { label: '3 mois', value: '90' },
+  { label: '6 mois', value: '180' },
+  { label: '1 an', value: '365' },
+  { label: '2 ans', value: '730' }
 ];
 
 interface Commit {
@@ -44,6 +44,15 @@ interface Commit {
   title: string;
   branch_name: string;
   is_default_branch: boolean;
+  stats?: {
+    additions: number;
+    deletions: number;
+    total: number;
+    files_changed: number;
+    files_added: number;
+    files_deleted: number;
+    files_modified: number;
+  };
 }
 
 interface CommitData {
@@ -200,13 +209,32 @@ export default function ActivityPage() {
               }
             })
             
-            return commitsResponse.data.map((commit: any) => ({
-              ...commit,
-              project_name: project.name,
-              project_id: project.id,
-              branch_name: branch.name,
-              is_default_branch: branch.name === project.default_branch
-            }))
+            // Get detailed stats for each commit
+            const commitsWithStats = await Promise.all(
+              commitsResponse.data.map(async (commit: any) => {
+                const detailResponse = await api.get(
+                  `/api/v4/projects/${selectedProject}/repository/commits/${commit.id}`
+                );
+                return {
+                  ...commit,
+                  project_name: project.name,
+                  project_id: project.id,
+                  branch_name: branch.name,
+                  is_default_branch: branch.name === project.default_branch,
+                  stats: {
+                    additions: detailResponse.data.stats?.additions || 0,
+                    deletions: detailResponse.data.stats?.deletions || 0,
+                    total: detailResponse.data.stats?.total || 0,
+                    files_changed: detailResponse.data.stats?.total || 0, // GitLab doesn't provide this directly
+                    files_added: 0, // We'll need to parse the diff to get these
+                    files_deleted: 0,
+                    files_modified: 0
+                  }
+                };
+              })
+            );
+
+            return commitsWithStats;
           })
         )
 
@@ -249,13 +277,32 @@ export default function ActivityPage() {
                     }
                   })
                   
-                  return commitsResponse.data.map((commit: any) => ({
-                    ...commit,
-                    project_name: project.name,
-                    project_id: project.id,
-                    branch_name: branch.name,
-                    is_default_branch: branch.name === project.default_branch
-                  }))
+                  // Get detailed stats for each commit
+                  const commitsWithStats = await Promise.all(
+                    commitsResponse.data.map(async (commit: any) => {
+                      const detailResponse = await api.get(
+                        `/api/v4/projects/${project.id}/repository/commits/${commit.id}`
+                      );
+                      return {
+                        ...commit,
+                        project_name: project.name,
+                        project_id: project.id,
+                        branch_name: branch.name,
+                        is_default_branch: branch.name === project.default_branch,
+                        stats: {
+                          additions: detailResponse.data.stats?.additions || 0,
+                          deletions: detailResponse.data.stats?.deletions || 0,
+                          total: detailResponse.data.stats?.total || 0,
+                          files_changed: detailResponse.data.stats?.total || 0,
+                          files_added: 0,
+                          files_deleted: 0,
+                          files_modified: 0
+                        }
+                      };
+                    })
+                  );
+
+                  return commitsWithStats;
                 })
               )
 
@@ -397,14 +444,15 @@ export default function ActivityPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Overview</CardTitle>
-              {selectedContributor !== 'all' && (
+              {(selectedContributor !== 'all' || selectedProject !== 'all') && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    setSelectedDate('Période Sélectionnée');
+                    const periodLabel = PERIOD_OPTIONS.find(opt => opt.value === period)?.label || 'Custom Period';
+                    setSelectedDate(`Last ${periodLabel}`);
                     setShowReportModal(true);
-                    generateDailyReport('Période Sélectionnée', filteredCommits);
+                    generateDailyReport(`Last ${periodLabel}`, filteredCommits);
                   }}
                 >
                   Générer Rapport
@@ -634,14 +682,16 @@ export default function ActivityPage() {
               <Card key={date}>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-lg">{date}</CardTitle>
-                  {selectedContributor !== 'all' && (
+                  {(selectedContributor !== 'all' || selectedProject !== 'all') && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        setSelectedDate(date);
+                        const periodLabel = PERIOD_OPTIONS.find(opt => opt.value === period)?.label || 'Custom Period';
+                        const reportTitle = date === 'Today' || date === 'Yesterday' ? date : `${date} (${periodLabel})`;
+                        setSelectedDate(reportTitle);
                         setShowReportModal(true);
-                        generateDailyReport(date, dayCommits);
+                        generateDailyReport(reportTitle, dayCommits);
                       }}
                     >
                       Générer Rapport
