@@ -50,22 +50,43 @@ UI Components
 - Use proper loading skeletons
 
 File Structure
-/app
-  /dashboard
-    /activity
-      /commit
-        /[projectId]
-          /[commitId]
-            page.tsx
-      page.tsx
-/components
-  /commit
-    commit-card.tsx
-    commit-details.tsx
-    commit-diff.tsx
-  /shared
-    loading-skeleton.tsx
-    error-boundary.tsx
+
+```plaintext
+src/
+├── app/ # Next.js App Router directory
+│ ├── (auth)/ # Auth route group
+│ │ ├── (signin)/
+│ ├── (dashboard)/ # Dashboard route group
+│ │ ├── layout.tsx
+│ │ ├── loading.tsx
+│ │ └── page.tsx
+│ └── api/ # API routes
+│
+├── components/ # Shared components
+│ ├── ui/ # UI components (buttons, inputs, etc.)
+│ └── layout/ # Layout components (header, sidebar, etc.)
+│
+├── features/ # Feature-based modules
+│ ├── feature/
+│ │ ├── components/ # Feature-specific components
+│ │ ├── actions/ # Server actions
+│ │ ├── schemas/ # Form validation schemas
+│ │ └── utils/ # Feature-specific utilities
+│ │
+├── lib/ # Core utilities and configurations
+│ ├── auth/ # Auth configuration
+│ ├── db/ # Database utilities
+│ └── utils/ # Shared utilities
+│
+├── hooks/ # Custom hooks
+│ └── use-debounce.ts
+│
+├── stores/ # Zustand stores
+│ └── dashboard-store.ts
+│
+└── types/ # TypeScript types
+└── index.ts
+```
 
 Performance Optimization
 - Implement proper data pagination
@@ -106,13 +127,3 @@ Documentation
 Environment Variables
 NEXT_PUBLIC_GITLAB_URL=
 NEXT_PUBLIC_GITLAB_TOKEN=
-
-Follow all original rules for:
-- React Best Practices
-- State Management
-- UI and Styling
-- Performance Optimization
-- Forms and Validation
-- Error Handling
-- Security
-- Internationalization
