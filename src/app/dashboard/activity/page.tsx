@@ -120,6 +120,8 @@ export default function ActivityPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [reportContent, setReportContent] = useState<string>('');
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [audioObj, setAudioObj] = useState<HTMLAudioElement | null>(null);
 
   // Get unique projects from commits
   const projects = useMemo(() => {
@@ -383,6 +385,34 @@ export default function ActivityPage() {
     }
   };
 
+  const handleReadAloud = async () => {
+    setIsSpeaking(true)
+    try {
+      const res = await fetch('/api/text-to-speech', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: reportContent, voice: 'onyx', language: 'fr' })
+      })
+      if (!res.ok) throw new Error('TTS failed')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      setAudioObj(audio)
+      audio.onended = () => {
+        setIsSpeaking(false)
+        setAudioObj(null)
+      }
+      audio.onerror = () => {
+        setIsSpeaking(false)
+        setAudioObj(null)
+      }
+      audio.play()
+    } catch (e) {
+      setIsSpeaking(false)
+      alert('Lecture audio impossible')
+    }
+  }
+
   return (
     <PageContainer>
       <div className='flex flex-1 flex-col space-y-4'>
@@ -450,12 +480,12 @@ export default function ActivityPage() {
                   size="sm"
                   onClick={() => {
                     const periodLabel = PERIOD_OPTIONS.find(opt => opt.value === period)?.label || 'Custom Period';
-                    setSelectedDate(`Last ${periodLabel}`);
+                    setSelectedDate(`Derniers ${periodLabel}`);
                     setShowReportModal(true);
-                    generateDailyReport(`Last ${periodLabel}`, filteredCommits);
+                    generateDailyReport(`Derniers ${periodLabel}`, filteredCommits);
                   }}
                 >
-                  Générer Rapport
+                  Generate Report
                 </Button>
               )}
             </CardHeader>
@@ -869,10 +899,23 @@ export default function ActivityPage() {
         </Dialog>
 
         {/* Report Modal */}
-        <Dialog open={showReportModal} onOpenChange={setShowReportModal}>
+        <Dialog open={showReportModal} onOpenChange={isSpeaking ? () => {} : setShowReportModal}>
           <DialogContent className="max-w-3xl max-h-[80vh]">
             <DialogHeader>
-              <DialogTitle>Rapport de Développement - {selectedDate}</DialogTitle>
+              <DialogTitle>
+                Rapport de Développement - {selectedDate}
+                {reportContent && !isGeneratingReport && (
+                  <Button
+                    className="ml-4"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleReadAloud}
+                    disabled={isSpeaking}
+                  >
+                    {isSpeaking ? 'Lecture en cours...' : '🔊 Lire à voix haute'}
+                  </Button>
+                )}
+              </DialogTitle>
             </DialogHeader>
             <ScrollArea className="mt-4 max-h-[60vh]">
               {isGeneratingReport ? (
@@ -880,9 +923,11 @@ export default function ActivityPage() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 </div>
               ) : (
-                <div 
+                <div
                   className="prose dark:prose-invert max-w-none px-4"
-                  dangerouslySetInnerHTML={{ __html: reportContent }}
+                  dangerouslySetInnerHTML={{
+                    __html: reportContent
+                  }}
                 />
               )}
             </ScrollArea>
