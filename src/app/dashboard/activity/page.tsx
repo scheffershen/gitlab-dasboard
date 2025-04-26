@@ -460,7 +460,7 @@ export default function ActivityPage() {
               )}
             </CardHeader>
             <CardContent>          
-              <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-2'>
+              <div className='grid gap-4 md:grid-cols-5 lg:grid-cols-5'>
                 <Card>
                   <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
                     <CardTitle className='text-sm font-medium'>
@@ -480,6 +480,45 @@ export default function ActivityPage() {
                   <CardContent>
                     <div className='text-2xl font-bold'>
                       {new Set(filteredCommits.map(c => c.author_name)).size}
+                    </div>
+                  </CardContent>
+                </Card>
+                {/* Additions */}
+                <Card>
+                  <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                    <CardTitle className='text-sm font-medium'>
+                      Additions lines
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className='text-2xl font-bold'>
+                      {filteredCommits.reduce((sum, c) => sum + (c.stats?.additions || 0), 0)}
+                    </div>
+                  </CardContent>
+                </Card>
+                {/* Deletions */}
+                <Card>
+                  <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                    <CardTitle className='text-sm font-medium'>
+                      Deletions lines
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className='text-2xl font-bold'>
+                      {filteredCommits.reduce((sum, c) => sum + (c.stats?.deletions || 0), 0)}
+                    </div>
+                  </CardContent>
+                </Card>
+                {/* Total Changes */}
+                <Card>
+                  <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
+                    <CardTitle className='text-sm font-medium'>
+                      Total Changes lines
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className='text-2xl font-bold'>
+                      {filteredCommits.reduce((sum, c) => sum + (c.stats?.total || 0), 0)}
                     </div>
                   </CardContent>
                 </Card>
