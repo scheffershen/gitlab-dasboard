@@ -158,11 +158,13 @@ export default function ActivityPage() {
 
   // Update the projectStats calculation
   const projectStats = useMemo(() => {
-    return projects.map((project, index) => ({
-      ...project,
-      value: filteredCommits.filter(commit => commit.project_id === project.id).length,
-      fill: CHART_COLORS[index % CHART_COLORS.length]
-    }));
+    return projects
+      .map((project, index) => ({
+        ...project,
+        value: filteredCommits.filter(commit => commit.project_id === project.id).length,
+        fill: CHART_COLORS[index % CHART_COLORS.length] // Keep original color mapping
+      }))
+      .sort((a, b) => b.value - a.value); // Sort by commit count descending
   }, [projects, filteredCommits]);
 
   // Update the contributorStats calculation
@@ -564,135 +566,99 @@ export default function ActivityPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Pie Chart - Projects */}
+                {/* Horizontal Bar Chart - Projects (Sorted) */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Commits Distribution by Project</CardTitle>
                   </CardHeader>
-                  <CardContent className="flex-1 pb-0">
-                    <ChartContainer
-                      config={chartConfig}
-                      className="mx-auto aspect-square max-h-[300px]"
-                    >
-                      <PieChart>
+                  <CardContent className="pb-0">
+                    <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                      <BarChart
+                        accessibilityLayer
+                        data={projectStats}
+                        layout="vertical" // Set layout to vertical for horizontal bars
+                        margin={{
+                          left: 10, // Adjust left margin for project names
+                          right: 40, // Add right margin for potential labels
+                          top: 5,
+                          bottom: 5,
+                        }}
+                      >
+                        <CartesianGrid horizontal={false} />
+                        <YAxis
+                          dataKey="name"
+                          type="category" // Y-axis is now category (project names)
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={8}
+                          width={120} // Adjust width as needed for project names
+                          // Optionally truncate long project names
+                          // tickFormatter={(value) => value.length > 15 ? `${value.slice(0, 15)}...` : value}
+                        />
+                        <XAxis dataKey="value" type="number" hide /> {/* X-axis is now value (commit count), hide labels */}
                         <ChartTooltip
                           cursor={false}
                           content={<ChartTooltipContent hideLabel />}
                         />
-                        <Pie
-                          data={projectStats}
-                          dataKey="value"
-                          nameKey="name"
-                          innerRadius={60}
-                          outerRadius={100}
-                          strokeWidth={5}
-                        >
-                          <Label
-                            content={({ viewBox }) => {
-                              if (viewBox && 'cx' in viewBox && 'cy' in viewBox) {
-                                const total = projectStats.reduce((acc, project) => acc + project.value, 0);
-                                return (
-                                  <text
-                                    x={viewBox.cx}
-                                    y={viewBox.cy}
-                                    textAnchor="middle"
-                                    dominantBaseline="middle"
-                                  >
-                                    <tspan
-                                      x={viewBox.cx}
-                                      y={viewBox.cy}
-                                      className="fill-foreground text-3xl font-bold"
-                                    >
-                                      {total}
-                                    </tspan>
-                                    <tspan
-                                      x={viewBox.cx}
-                                      y={viewBox.cy + 24}
-                                      className="fill-muted-foreground"
-                                    >
-                                      Commits
-                                    </tspan>
-                                  </text>
-                                );
-                              }
-                              return null;
-                            }}
-                          />
-                        </Pie>
-                        <Legend 
-                          layout="horizontal" 
-                          align="center" 
-                          verticalAlign="bottom"
-                          iconType="circle"
-                          wrapperStyle={{
-                            paddingTop: '20px'
-                          }}
-                        />
-                      </PieChart>
+                        {/* The 'fill' prop in <Bar> will use the 'fill' property from each data entry */}
+                        <Bar dataKey="value" layout="vertical" radius={4}>
+                           {/* Optional: Add labels next to bars */}
+                           {/* <LabelList
+                             dataKey="value"
+                             position="right"
+                             offset={8}
+                             className="fill-foreground"
+                             fontSize={12}
+                           /> */}
+                        </Bar>
+                      </BarChart>
                     </ChartContainer>
                   </CardContent>
                 </Card>
 
-                {/* Bar Chart - Contributors */}
+                {/* Bar Chart - Contributors (Keep as is or adjust if needed) */}
                 <Card>
                   <CardHeader>
-                    <CardTitle>Commits by Contributor</CardTitle>
+                    <CardTitle>Top Contributors by Commits</CardTitle>
                   </CardHeader>
-                  <CardContent className="flex-1 pb-0">
-                    <ChartContainer
-                      config={chartConfig}
-                      className="mx-auto h-[300px]"
-                    >
+                  <CardContent className="pb-0">
+                    <ChartContainer config={chartConfig} className="h-[300px] w-full">
                       <BarChart
-                        width={400}
-                        height={250}
-                        data={contributorStats}
+                        accessibilityLayer
+                        data={contributorStats.slice(0, 10)} // Show top 10 contributors
                         layout="vertical"
-                        margin={{ top: 5, right: 30, left: 60, bottom: 5 }}
+                        margin={{
+                          left: 10, // Adjust left margin
+                          right: 40, // Add right margin
+                          top: 5,
+                          bottom: 5,
+                        }}
                       >
-                        <CartesianGrid horizontal={false} stroke="var(--muted-foreground)" opacity={0.1} />
-                        <XAxis type="number" />
+                        <CartesianGrid horizontal={false} />
                         <YAxis
-                          type="category"
                           dataKey="name"
-                          width={120}
-                          tick={{ fontSize: 11 }}
+                          type="category"
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={8}
+                          width={100} // Adjust width based on typical contributor name length
+                          // tickFormatter={(value) => value.slice(0, 15) + (value.length > 15 ? '...' : '')}
                         />
+                        <XAxis dataKey="commits" type="number" hide />
                         <ChartTooltip
                           cursor={false}
-                          content={({ active, payload }) => {
-                            if (active && payload && payload.length) {
-                              return (
-                                <div className="rounded-lg border bg-background p-2 shadow-sm">
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div className="flex flex-col">
-                                      <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                        Author
-                                      </span>
-                                      <span className="font-bold text-sm">
-                                        {payload[0].payload.name}
-                                      </span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                      <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                        Commits
-                                      </span>
-                                      <span className="font-bold text-sm">
-                                        {payload[0].value}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            }
-                            return null;
-                          }}
+                          content={<ChartTooltipContent hideLabel />}
                         />
-                        <Bar
-                          dataKey="commits"
-                          fill="var(--chart-1)"
-                          radius={[4, 4, 4, 4]}
-                        />
+                        <Bar dataKey="commits" layout="vertical" fill="var(--color-contributor)" radius={4}>
+                          {/* Add labels inside or next to bars */}
+                          {/* <LabelList
+                            dataKey="commits"
+                            position="right"
+                            offset={8}
+                            className="fill-foreground"
+                            fontSize={12}
+                          /> */}
+                        </Bar>
                       </BarChart>
                     </ChartContainer>
                   </CardContent>
