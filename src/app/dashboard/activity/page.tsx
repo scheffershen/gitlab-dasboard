@@ -14,8 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowsPointingInIcon, ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
 import { buttonVariants } from '@/components/ui/button';
 import CommitModal from '@/components/commit-modal';
-import { PieChart, Pie, Label, ViewBox, Legend } from 'recharts';
-import { BarChart, Bar, XAxis, CartesianGrid, Tooltip, YAxis } from 'recharts';
+import { PieChart, Pie, Label, ViewBox, Legend, BarChart, Bar, XAxis, CartesianGrid, Tooltip, YAxis, Cell } from 'recharts';
 import {
   ChartConfig,
   ChartContainer,
@@ -104,6 +103,14 @@ const chartConfig = {
   contributor: {
     label: 'Contributor',
     color: 'var(--chart-2)'
+  },
+  additions: { // Add this
+    label: 'Additions',
+    color: 'hsl(var(--chart-green))' // Example color, adjust as needed
+  },
+  deletions: { // Add this
+    label: 'Deletions',
+    color: 'hsl(var(--chart-red))' // Example color, adjust as needed
   }
 } satisfies ChartConfig;
 
@@ -162,7 +169,7 @@ export default function ActivityPage() {
       .map((project, index) => ({
         ...project,
         value: filteredCommits.filter(commit => commit.project_id === project.id).length,
-        fill: CHART_COLORS[index % CHART_COLORS.length] // Keep original color mapping
+        fill: CHART_COLORS[index % CHART_COLORS.length] // Color assigned here
       }))
       .sort((a, b) => b.value - a.value); // Sort by commit count descending
   }, [projects, filteredCommits]);
@@ -176,6 +183,37 @@ export default function ActivityPage() {
       }))
       .sort((a, b) => b.commits - a.commits);
   }, [contributors, filteredCommits]);
+
+  // Calculate additions per project
+  const projectAdditionsStats = useMemo(() => {
+    if (selectedProject !== 'all') return []; // Only calculate if 'all' projects are selected
+    return projects
+      .map((project, index) => ({
+        name: project.name,
+        value: filteredCommits
+          .filter(commit => commit.project_id === project.id)
+          .reduce((sum, commit) => sum + (commit.stats?.additions || 0), 0),
+        fill: CHART_COLORS[index % CHART_COLORS.length]
+      }))
+      .filter(p => p.value > 0) // Only include projects with additions
+      .sort((a, b) => b.value - a.value);
+  }, [projects, filteredCommits, selectedProject]);
+
+  // Calculate deletions per project
+  const projectDeletionsStats = useMemo(() => {
+    if (selectedProject !== 'all') return []; // Only calculate if 'all' projects are selected
+    return projects
+      .map((project, index) => ({
+        name: project.name,
+        value: filteredCommits
+          .filter(commit => commit.project_id === project.id)
+          .reduce((sum, commit) => sum + (commit.stats?.deletions || 0), 0),
+        fill: CHART_COLORS[index % CHART_COLORS.length]
+      }))
+      .filter(p => p.value > 0) // Only include projects with deletions
+      .sort((a, b) => b.value - a.value);
+  }, [projects, filteredCommits, selectedProject]);
+
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -559,80 +597,112 @@ export default function ActivityPage() {
           </Card>              
         )}
 
-        {!loading && commitsData?.commits && commitsData.commits.length > 0 && (
+        {!loading && selectedProject === 'all' && projects.length > 1 && commitsData?.commits && commitsData.commits.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Project & Contributor Statistics</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className='grid gap-6 md:grid-cols-2'>
                 {/* Horizontal Bar Chart - Projects (Sorted) */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Commits Distribution by Project</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pb-0">
-                    <ChartContainer config={chartConfig} className="h-[300px] w-full">
-                      <BarChart
-                        accessibilityLayer
-                        data={projectStats}
-                        layout="vertical" // Set layout to vertical for horizontal bars
-                        margin={{
-                          left: 10, // Adjust left margin for project names
-                          right: 40, // Add right margin for potential labels
-                          top: 5,
-                          bottom: 5,
-                        }}
-                      >
-                        <CartesianGrid horizontal={false} />
-                        <YAxis
-                          dataKey="name"
-                          type="category" // Y-axis is now category (project names)
-                          tickLine={false}
-                          axisLine={false}
-                          tickMargin={8}
-                          width={120} // Adjust width as needed for project names
-                          // Optionally truncate long project names
-                          // tickFormatter={(value) => value.length > 15 ? `${value.slice(0, 15)}...` : value}
-                        />
-                        <XAxis dataKey="value" type="number" hide /> {/* X-axis is now value (commit count), hide labels */}
-                        <ChartTooltip
-                          cursor={false}
-                          content={<ChartTooltipContent hideLabel />}
-                        />
-                        {/* The 'fill' prop in <Bar> will use the 'fill' property from each data entry */}
-                        <Bar dataKey="value" layout="vertical" radius={4}>
-                           {/* Optional: Add labels next to bars */}
-                           {/* <LabelList
-                             dataKey="value"
-                             position="right"
-                             offset={8}
-                             className="fill-foreground"
-                             fontSize={12}
-                           /> */}
-                        </Bar>
-                      </BarChart>
-                    </ChartContainer>
-                  </CardContent>
-                </Card>
+                <div className='flex flex-col items-center'>
+                  <h3 className='mb-2 text-lg font-semibold'>Commits by Project</h3>
+                  <ChartContainer config={chartConfig} className='h-[250px] w-full'>
+                    <BarChart
+                      accessibilityLayer
+                      data={projectStats.filter(p => p.value > 0)} // Filter out projects with 0 commits
+                      layout="vertical" // Set layout to vertical for horizontal bars
+                      margin={{
+                        left: 10, // Adjust left margin for project names
+                        right: 40, // Add right margin for potential labels
+                        top: 5,
+                        bottom: 5,
+                      }}
+                    >
+                      <CartesianGrid horizontal={false} />
+                      <YAxis
+                        dataKey="name"
+                        type="category" // Y-axis is now category (project names)
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        width={120} // Adjust width as needed for project names
+                        tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value} // Truncate long names
+                      />
+                      <XAxis dataKey="value" type="number" hide /> {/* X-axis is now value (commit count), hide labels */}
+                      <ChartTooltip
+                        cursor={false}
+                        content={<ChartTooltipContent hideLabel />}
+                      />
+                      {/* The 'fill' prop in <Bar> will use the 'fill' property from each data entry */}
+                      <Bar dataKey="value" layout="vertical" radius={4}>
+                         {/* Optional: Add labels next to bars */}
+                         {/* <LabelList
+                           dataKey="value"
+                           position="right"
+                           offset={8}
+                           className="fill-foreground"
+                           fontSize={12}
+                         /> */}
+                      </Bar>
+                    </BarChart>
+                  </ChartContainer>
+                </div>
 
-                {/* Bar Chart - Contributors (Keep as is or adjust if needed) */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Top Contributors by Commits</CardTitle>
-                  </CardHeader>
-                  <CardContent className="pb-0">
-                    <ChartContainer config={chartConfig} className="h-[300px] w-full">
+                {/* Existing Contributor Commits Bar Chart (Remains the same) */}
+                <div className='flex flex-col items-center'>
+                  <h3 className='mb-2 text-lg font-semibold'>Commits by Contributor</h3>
+                  <ChartContainer config={chartConfig} className='h-[250px] w-full'>
+                    <BarChart
+                      accessibilityLayer
+                      data={contributorStats.slice(0, 10)} // Show top 10 contributors
+                      layout='vertical'
+                      margin={{ left: 10, right: 10 }}
+                    >
+                      <CartesianGrid horizontal={false} />
+                      <YAxis
+                        dataKey='name'
+                        type='category'
+                        tickLine={false}
+                        tickMargin={10}
+                        axisLine={false}
+                        width={100} // Adjust width as needed
+                        tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value} // Truncate long names
+                      />
+                      <XAxis dataKey='commits' type='number' hide />
+                      <ChartTooltip cursor={false} content={<ChartTooltipContent indicator='line' />} />
+                      {/* Modify the Bar component like this: */}
+                      <Bar dataKey='commits' radius={4}>
+                        {contributorStats.slice(0, 10).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ChartContainer>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Additions and Deletions Bar Charts */}
+        {!loading && selectedProject === 'all' && projects.length > 1 && (projectAdditionsStats.length > 0 || projectDeletionsStats.length > 0) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Line Changes by Project</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className='grid gap-6 md:grid-cols-2'>
+                {/* Additions Bar Chart */}
+                {projectAdditionsStats.length > 0 && (
+                  <div className='flex flex-col items-center'>
+                    <h3 className='mb-2 text-lg font-semibold'>Additions by Project</h3>
+                    <ChartContainer config={chartConfig} className='h-[250px] w-full'>
                       <BarChart
                         accessibilityLayer
-                        data={contributorStats.slice(0, 10)} // Show top 10 contributors
+                        data={projectAdditionsStats}
                         layout="vertical"
-                        margin={{
-                          left: 10, // Adjust left margin
-                          right: 40, // Add right margin
-                          top: 5,
-                          bottom: 5,
-                        }}
+                        margin={{ left: 10, right: 40, top: 5, bottom: 5 }}
                       >
                         <CartesianGrid horizontal={false} />
                         <YAxis
@@ -641,33 +711,64 @@ export default function ActivityPage() {
                           tickLine={false}
                           axisLine={false}
                           tickMargin={8}
-                          width={100} // Adjust width based on typical contributor name length
-                          // tickFormatter={(value) => value.slice(0, 15) + (value.length > 15 ? '...' : '')}
+                          width={120}
+                          tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value}
                         />
-                        <XAxis dataKey="commits" type="number" hide />
+                        <XAxis dataKey="value" type="number" hide />
                         <ChartTooltip
                           cursor={false}
                           content={<ChartTooltipContent hideLabel />}
                         />
-                        <Bar dataKey="commits" layout="vertical" fill="var(--color-contributor)" radius={4}>
-                          {/* Add labels inside or next to bars */}
-                          {/* <LabelList
-                            dataKey="commits"
-                            position="right"
-                            offset={8}
-                            className="fill-foreground"
-                            fontSize={12}
-                          /> */}
+                        <Bar dataKey="value" layout="vertical" radius={4}>
+                          {projectAdditionsStats.map((entry, index) => (
+                            <Cell key={`cell-add-${index}`} fill={entry.fill || CHART_COLORS[index % CHART_COLORS.length]} />
+                          ))}
                         </Bar>
                       </BarChart>
                     </ChartContainer>
-                  </CardContent>
-                </Card>
+                  </div>
+                )}
+
+                {/* Deletions Bar Chart */}
+                {projectDeletionsStats.length > 0 && (
+                  <div className='flex flex-col items-center'>
+                    <h3 className='mb-2 text-lg font-semibold'>Deletions by Project</h3>
+                    <ChartContainer config={chartConfig} className='h-[250px] w-full'>
+                      <BarChart
+                        accessibilityLayer
+                        data={projectDeletionsStats}
+                        layout="vertical"
+                        margin={{ left: 10, right: 40, top: 5, bottom: 5 }}
+                      >
+                        <CartesianGrid horizontal={false} />
+                        <YAxis
+                          dataKey="name"
+                          type="category"
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={8}
+                          width={120}
+                          tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value}
+                        />
+                        <XAxis dataKey="value" type="number" hide />
+                        <ChartTooltip
+                          cursor={false}
+                          content={<ChartTooltipContent hideLabel />}
+                        />
+                        <Bar dataKey="value" layout="vertical" radius={4}>
+                          {projectDeletionsStats.map((entry, index) => (
+                            <Cell key={`cell-del-${index}`} fill={entry.fill || CHART_COLORS[index % CHART_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ChartContainer>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
         )}
-        
+
         {/* Commits Display */}
         {loading ? (
           <Card className="space-y-4">
