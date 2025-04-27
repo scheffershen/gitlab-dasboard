@@ -18,6 +18,10 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import * as z from 'zod'
 import { ArrowPathIcon } from '@heroicons/react/24/outline'
+import { useState, useCallback  } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+
+
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Enter a valid email address' }),
@@ -30,6 +34,7 @@ export default function SignInForm() {
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl')
   const [loading, startTransition] = useTransition()
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<SignInFormValues>({
     resolver: zodResolver(formSchema),
@@ -59,6 +64,16 @@ export default function SignInForm() {
         toast.error('Something went wrong. Please try again.')
       }
     })
+  }
+
+  function usePasswordVisibility() {
+    const [showPassword, setShowPassword] = useState(false);
+    
+    const togglePasswordVisibility = useCallback(() => {
+      setShowPassword(prev => !prev);
+    }, []);
+  
+    return { showPassword, togglePasswordVisibility };
   }
 
   return (
@@ -98,12 +113,25 @@ export default function SignInForm() {
                 </a>
               </div>
               <FormControl>
-                <Input
-                  type="password"
-                  placeholder="Enter your password"
-                  disabled={loading}
-                  {...field}
-                />
+                <div className="relative">
+                  <Input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your password"
+                    disabled={loading}
+                    {...field}
+                  />
+                  <button
+                    type="button"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={loading}
+                    tabIndex={0}
+                    aria-disabled={loading}
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
               </FormControl>
               <FormMessage />
             </FormItem>
