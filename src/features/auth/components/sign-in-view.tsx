@@ -8,14 +8,13 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import LoginInForm from "./login-in-form"
+import LoginInForm from "./sign-in-form"
 
 interface SignInViewProps {
-  stars?: number
   className?: string
 }
 
-export default function SignInView({ stars, className }: SignInViewProps) {
+export default function SignInView({ className }: SignInViewProps) {
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
       <div className={cn("w-full max-w-sm", className)}>

@@ -21,98 +21,20 @@ import {
   ChartTooltip,
   ChartTooltipContent
 } from '@/components/ui/chart';
-
-const PERIOD_OPTIONS = [
-  { label: '24 heures', value: '1', default: true },
-  { label: '7 jours', value: '7'},
-  { label: '14 jours', value: '14' },
-  { label: '30 jours', value: '30' },
-  { label: '60 jours', value: '60' },
-  { label: '3 mois', value: '90' },
-  { label: '6 mois', value: '180' },
-  { label: '1 an', value: '365' },
-  { label: '2 ans', value: '730' }
-];
-
-interface Commit {
-  id: string;
-  project_id: number;
-  project_name: string;
-  author_name: string;
-  created_at: string;
-  title: string;
-  branch_name: string;
-  is_default_branch: boolean;
-  stats?: {
-    additions: number;
-    deletions: number;
-    total: number;
-    files_changed: number;
-    files_added: number;
-    files_deleted: number;
-    files_modified: number;
-  };
-}
-
-interface CommitData {
-  commits: Commit[];
-  timestamp: string;
-}
-
-interface PieChartViewBox {
-  cx: number;
-  cy: number;
-  innerRadius: number;
-  outerRadius: number;
-  startAngle: number;
-  endAngle: number;
-}
-
-interface Project {
-  id: number;
-  name: string;
-  value: number;
-}
-
-interface Contributor {
-  name: string;
-  commits: number;
-}
-
-const CHART_COLORS = [
-  'var(--chart-1)',
-  'var(--chart-2)',
-  'var(--chart-3)',
-  'var(--chart-4)',
-  'var(--chart-5)',
-  'var(--chart-6)',
-  'var(--chart-7)',
-  'var(--chart-8)',
-  'var(--chart-9)',
-  'var(--chart-10)',
-];
-
-const chartConfig = {
-  commits: {
-    label: 'Commits'
-  },
-  project: {
-    label: 'Project',
-    color: 'var(--chart-1)'
-  },
-  contributor: {
-    label: 'Contributor',
-    color: 'var(--chart-2)'
-  },
-  additions: { // Add this
-    label: 'Additions',
-    color: 'hsl(var(--chart-green))' // Example color, adjust as needed
-  },
-  deletions: { // Add this
-    label: 'Deletions',
-    color: 'hsl(var(--chart-red))' // Example color, adjust as needed
-  }
-} satisfies ChartConfig;
+import {
+  PERIOD_OPTIONS,
+  CHART_COLORS,
+  chartConfig
+} from './constants';
+import {
+  type Commit,
+  type CommitData,
+  type PieChartViewBox,
+  type Project,
+  type Contributor
+} from './types';
+// Make sure ChartConfig is imported if it was defined here originally
+// import { type ChartConfig } from "@/components/ui/chart"; // Or wherever it comes from
 
 export default function ActivityPage() {
   const [period, setPeriod] = useState('1');
