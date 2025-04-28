@@ -1,20 +1,13 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
 import axios from 'axios';
-import { PieChart, Pie, Label, ViewBox, Legend, BarChart, Bar, XAxis, CartesianGrid, Tooltip, YAxis, Cell } from 'recharts';
 import { ArrowsPointingInIcon, ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
 import PageContainer from '@/components/layout/page-container';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { buttonVariants } from '@/components/ui/button';
-import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { PERIOD_OPTIONS, CHART_COLORS, chartConfig } from '@/features/activity/constants';
 import { type Commit, type CommitData, type PieChartViewBox, type Project, type Contributor } from '@/features/activity/types';
 import { ActivityFilters } from '@/features/activity/components/activity-filters';
@@ -23,8 +16,7 @@ import { ActivityLineChanges } from '@/features/activity/components/activity-lin
 import { ActivityCommits } from '@/features/activity/components/activity-commits';
 import CommitModal from '@/features/activity/components/commit-modal';
 import { ActivityReportDialog } from '@/features/activity/components/activity-report-dialog';
-// Make sure ChartConfig is imported if it was defined here originally
-// import { type ChartConfig } from "@/components/ui/chart"; // Or wherever it comes from
+
 
 export default function ActivityPage() {
   const [period, setPeriod] = useState('1');
@@ -337,32 +329,22 @@ export default function ActivityPage() {
   };
 
   const handleReadAloud = async () => {
-    setIsSpeaking(true)
+    setIsSpeaking(true);
     try {
       const res = await fetch('/api/text-to-speech', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: reportContent, voice: 'onyx', language: 'fr' })
-      })
-      if (!res.ok) throw new Error('TTS failed')
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const audio = new Audio(url)
-      setAudioObj(audio)
-      audio.onended = () => {
-        setIsSpeaking(false)
-        setAudioObj(null)
-      }
-      audio.onerror = () => {
-        setIsSpeaking(false)
-        setAudioObj(null)
-      }
-      audio.play()
+      });
+      if (!res.ok) throw new Error('TTS failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      return url;
     } catch (e) {
-      setIsSpeaking(false)
-      alert('Lecture audio impossible')
+      console.error('Failed to generate audio:', e);
+      throw e;
     }
-  }
+  };
 
   return (
     <PageContainer>

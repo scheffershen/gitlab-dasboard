@@ -2,7 +2,7 @@ import { type ChartConfig } from "@/components/ui/chart"; // Adjust import path 
 
 export const PERIOD_OPTIONS = [
   { label: '24 heures', value: '1', default: true },
-  { label: '7 jours', value: '7'},
+  { label: '7 jours', value: '9'},
   { label: '14 jours', value: '14' },
   { label: '30 jours', value: '30' },
   { label: '60 jours', value: '60' },

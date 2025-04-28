@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,7 +12,7 @@ interface ActivityReportDialogProps {
   reportContent: string;
   isGeneratingReport: boolean;
   isSpeaking: boolean;
-  onReadAloud: () => void;
+  onReadAloud: () => Promise<string>;
 }
 
 export function ActivityReportDialog({
@@ -25,6 +25,30 @@ export function ActivityReportDialog({
   onReadAloud
 }: ActivityReportDialogProps) {
   const [isFullscreen, setIsFullscreen] = useState(true);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+
+  useEffect(() => {
+    if (!isGeneratingReport && reportContent && !audioUrl && !isGeneratingAudio) {
+      setIsGeneratingAudio(true);
+      onReadAloud()
+        .then(url => {
+          setAudioUrl(url);
+          setIsGeneratingAudio(false);
+        })
+        .catch(() => {
+          setIsGeneratingAudio(false);
+        });
+    }
+  }, [isGeneratingReport, reportContent, audioUrl, isGeneratingAudio, onReadAloud]);
+
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
 
   return (
     <Dialog open={isOpen} onOpenChange={isSpeaking ? () => {} : onOpenChange}>
@@ -46,17 +70,6 @@ export function ActivityReportDialog({
             </div>
             <DialogTitle className="flex-1 text-center">
               Rapport de Développement - {selectedDate}
-              {reportContent && !isGeneratingReport && (
-                <Button
-                  className="ml-4"
-                  size="sm"
-                  variant="outline"
-                  onClick={onReadAloud}
-                  disabled={isSpeaking}
-                >
-                  {isSpeaking ? 'Lecture en cours...' : '🔊 Lire à voix haute'}
-                </Button>
-              )}
             </DialogTitle>
             <div className="flex-none w-10"></div>
           </div>
@@ -67,12 +80,23 @@ export function ActivityReportDialog({
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
           ) : (
-            <div
-              className="prose dark:prose-invert max-w-none px-4"
-              dangerouslySetInnerHTML={{
-                __html: reportContent
-              }}
-            />
+            <div className="space-y-4">
+              {audioUrl && (
+                <div className="sticky top-0 bg-background z-10 p-4 border-b">
+                  <audio 
+                    controls 
+                    className="w-full"
+                    src={audioUrl}
+                  />
+                </div>
+              )}
+              <div
+                className="prose dark:prose-invert max-w-none px-4 text-xl"
+                dangerouslySetInnerHTML={{
+                  __html: reportContent
+                }}
+              />
+            </div>
           )}
         </ScrollArea>
       </DialogContent>
