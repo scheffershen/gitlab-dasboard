@@ -1,3 +1,14 @@
+// src/features/activity/types/commitTypes.ts
+export interface CommitStats {
+    additions: number;
+    deletions: number;
+    total: number;
+    files_changed: number;
+    files_added: number;
+    files_deleted: number;
+    files_modified: number;
+}
+
 export interface Commit {
   id: string;
   project_id: number;
@@ -7,15 +18,7 @@ export interface Commit {
   title: string;
   branch_name: string;
   is_default_branch: boolean;
-  stats?: {
-    additions: number;
-    deletions: number;
-    total: number;
-    files_changed: number;
-    files_added: number;
-    files_deleted: number;
-    files_modified: number;
-  };
+  stats: CommitStats;
 }
 
 export interface CommitData {

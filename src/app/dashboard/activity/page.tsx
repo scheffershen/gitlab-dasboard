@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
 import Link from 'next/link';
+import axios from 'axios';
+import { PieChart, Pie, Label, ViewBox, Legend, BarChart, Bar, XAxis, CartesianGrid, Tooltip, YAxis, Cell } from 'recharts';
+import { ArrowsPointingInIcon, ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
 import PageContainer from '@/components/layout/page-container';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,28 +13,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowsPointingInIcon, ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
 import { buttonVariants } from '@/components/ui/button';
 import CommitModal from '@/components/commit-modal';
-import { PieChart, Pie, Label, ViewBox, Legend, BarChart, Bar, XAxis, CartesianGrid, Tooltip, YAxis, Cell } from 'recharts';
-import {
-  ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent
-} from '@/components/ui/chart';
-import {
-  PERIOD_OPTIONS,
-  CHART_COLORS,
-  chartConfig
-} from './constants';
-import {
-  type Commit,
-  type CommitData,
-  type PieChartViewBox,
-  type Project,
-  type Contributor
-} from './types';
+import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { PERIOD_OPTIONS, CHART_COLORS, chartConfig } from '@/features/activity/constants';
+import { type Commit, type CommitData, type PieChartViewBox, type Project, type Contributor } from '@/features/activity/types';
+import { ActivityFilters } from '@/features/activity/components/activity-filters';
 // Make sure ChartConfig is imported if it was defined here originally
 // import { type ChartConfig } from "@/components/ui/chart"; // Or wherever it comes from
 
@@ -135,7 +121,6 @@ export default function ActivityPage() {
       .filter(p => p.value > 0) // Only include projects with deletions
       .sort((a, b) => b.value - a.value);
   }, [projects, filteredCommits, selectedProject]);
-
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -381,56 +366,17 @@ export default function ActivityPage() {
         <div className='flex items-center justify-between'>
           <h2 className='text-2xl font-bold tracking-tight'>Activity</h2>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Filters</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
-              <Select value={period} onValueChange={setPeriod}>
-                <SelectTrigger>
-                  <SelectValue placeholder='Select period' />
-                </SelectTrigger>
-                <SelectContent>
-                  {PERIOD_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedProject} onValueChange={setSelectedProject}>
-                <SelectTrigger>
-                  <SelectValue placeholder='Select project' />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='all'>All projects</SelectItem>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id.toString()}>
-                      {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedContributor} onValueChange={setSelectedContributor}>
-                <SelectTrigger>
-                  <SelectValue placeholder='Select contributor' />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='all'>All contributors</SelectItem>
-                  {contributors.map((contributor) => (
-                    <SelectItem key={contributor} value={contributor}>
-                      {contributor}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+        <ActivityFilters
+          period={period}
+          setPeriod={setPeriod}
+          selectedProject={selectedProject}
+          setSelectedProject={setSelectedProject}
+          selectedContributor={selectedContributor}
+          setSelectedContributor={setSelectedContributor}
+          projects={projects}
+          contributors={contributors}
+          periodOptions={PERIOD_OPTIONS}
+        />
 
         {!loading && commitsData?.commits && commitsData.commits.length > 0 && (
           <Card>
