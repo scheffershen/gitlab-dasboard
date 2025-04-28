@@ -14,11 +14,15 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { buttonVariants } from '@/components/ui/button';
-import CommitModal from '@/components/commit-modal';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { PERIOD_OPTIONS, CHART_COLORS, chartConfig } from '@/features/activity/constants';
 import { type Commit, type CommitData, type PieChartViewBox, type Project, type Contributor } from '@/features/activity/types';
 import { ActivityFilters } from '@/features/activity/components/activity-filters';
+import { ActivityStatistics } from '@/features/activity/components/activity-statistics';
+import { ActivityLineChanges } from '@/features/activity/components/activity-line-changes';
+import { ActivityCommits } from '@/features/activity/components/activity-commits';
+import CommitModal from '@/features/activity/components/commit-modal';
+import { ActivityReportDialog } from '@/features/activity/components/activity-report-dialog';
 // Make sure ChartConfig is imported if it was defined here originally
 // import { type ChartConfig } from "@/components/ui/chart"; // Or wherever it comes from
 
@@ -466,175 +470,20 @@ export default function ActivityPage() {
         )}
 
         {!loading && selectedProject === 'all' && projects.length > 1 && commitsData?.commits && commitsData.commits.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Project & Contributor Statistics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className='grid gap-6 md:grid-cols-2'>
-                {/* Horizontal Bar Chart - Projects (Sorted) */}
-                <div className='flex flex-col items-center'>
-                  <h3 className='mb-2 text-lg font-semibold'>Commits by Project</h3>
-                  <ChartContainer config={chartConfig} className='h-[250px] w-full'>
-                    <BarChart
-                      accessibilityLayer
-                      data={projectStats.filter(p => p.value > 0)} // Filter out projects with 0 commits
-                      layout="vertical" // Set layout to vertical for horizontal bars
-                      margin={{
-                        left: 10, // Adjust left margin for project names
-                        right: 40, // Add right margin for potential labels
-                        top: 5,
-                        bottom: 5,
-                      }}
-                    >
-                      <CartesianGrid horizontal={false} />
-                      <YAxis
-                        dataKey="name"
-                        type="category" // Y-axis is now category (project names)
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        width={120} // Adjust width as needed for project names
-                        tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value} // Truncate long names
-                      />
-                      <XAxis dataKey="value" type="number" hide /> {/* X-axis is now value (commit count), hide labels */}
-                      <ChartTooltip
-                        cursor={false}
-                        content={<ChartTooltipContent hideLabel />}
-                      />
-                      {/* The 'fill' prop in <Bar> will use the 'fill' property from each data entry */}
-                      <Bar dataKey="value" layout="vertical" radius={4}>
-                         {/* Optional: Add labels next to bars */}
-                         {/* <LabelList
-                           dataKey="value"
-                           position="right"
-                           offset={8}
-                           className="fill-foreground"
-                           fontSize={12}
-                         /> */}
-                      </Bar>
-                    </BarChart>
-                  </ChartContainer>
-                </div>
-
-                {/* Existing Contributor Commits Bar Chart (Remains the same) */}
-                <div className='flex flex-col items-center'>
-                  <h3 className='mb-2 text-lg font-semibold'>Commits by Contributor</h3>
-                  <ChartContainer config={chartConfig} className='h-[250px] w-full'>
-                    <BarChart
-                      accessibilityLayer
-                      data={contributorStats.slice(0, 10)} // Show top 10 contributors
-                      layout='vertical'
-                      margin={{ left: 10, right: 10 }}
-                    >
-                      <CartesianGrid horizontal={false} />
-                      <YAxis
-                        dataKey='name'
-                        type='category'
-                        tickLine={false}
-                        tickMargin={10}
-                        axisLine={false}
-                        width={100} // Adjust width as needed
-                        tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value} // Truncate long names
-                      />
-                      <XAxis dataKey='commits' type='number' hide />
-                      <ChartTooltip cursor={false} content={<ChartTooltipContent indicator='line' />} />
-                      {/* Modify the Bar component like this: */}
-                      <Bar dataKey='commits' radius={4}>
-                        {contributorStats.slice(0, 10).map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ChartContainer>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <ActivityStatistics
+            projectStats={projectStats}
+            contributorStats={contributorStats}
+            chartConfig={chartConfig}
+          />
         )}
 
         {/* Additions and Deletions Bar Charts */}
         {!loading && selectedProject === 'all' && projects.length > 1 && (projectAdditionsStats.length > 0 || projectDeletionsStats.length > 0) && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Line Changes by Project</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className='grid gap-6 md:grid-cols-2'>
-                {/* Additions Bar Chart */}
-                {projectAdditionsStats.length > 0 && (
-                  <div className='flex flex-col items-center'>
-                    <h3 className='mb-2 text-lg font-semibold'>Additions by Project</h3>
-                    <ChartContainer config={chartConfig} className='h-[250px] w-full'>
-                      <BarChart
-                        accessibilityLayer
-                        data={projectAdditionsStats}
-                        layout="vertical"
-                        margin={{ left: 10, right: 40, top: 5, bottom: 5 }}
-                      >
-                        <CartesianGrid horizontal={false} />
-                        <YAxis
-                          dataKey="name"
-                          type="category"
-                          tickLine={false}
-                          axisLine={false}
-                          tickMargin={8}
-                          width={120}
-                          tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value}
-                        />
-                        <XAxis dataKey="value" type="number" hide />
-                        <ChartTooltip
-                          cursor={false}
-                          content={<ChartTooltipContent hideLabel />}
-                        />
-                        <Bar dataKey="value" layout="vertical" radius={4}>
-                          {projectAdditionsStats.map((entry, index) => (
-                            <Cell key={`cell-add-${index}`} fill={entry.fill || CHART_COLORS[index % CHART_COLORS.length]} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ChartContainer>
-                  </div>
-                )}
-
-                {/* Deletions Bar Chart */}
-                {projectDeletionsStats.length > 0 && (
-                  <div className='flex flex-col items-center'>
-                    <h3 className='mb-2 text-lg font-semibold'>Deletions by Project</h3>
-                    <ChartContainer config={chartConfig} className='h-[250px] w-full'>
-                      <BarChart
-                        accessibilityLayer
-                        data={projectDeletionsStats}
-                        layout="vertical"
-                        margin={{ left: 10, right: 40, top: 5, bottom: 5 }}
-                      >
-                        <CartesianGrid horizontal={false} />
-                        <YAxis
-                          dataKey="name"
-                          type="category"
-                          tickLine={false}
-                          axisLine={false}
-                          tickMargin={8}
-                          width={120}
-                          tickFormatter={(value) => value.length > 15 ? `${value.substring(0, 15)}...` : value}
-                        />
-                        <XAxis dataKey="value" type="number" hide />
-                        <ChartTooltip
-                          cursor={false}
-                          content={<ChartTooltipContent hideLabel />}
-                        />
-                        <Bar dataKey="value" layout="vertical" radius={4}>
-                          {projectDeletionsStats.map((entry, index) => (
-                            <Cell key={`cell-del-${index}`} fill={entry.fill || CHART_COLORS[index % CHART_COLORS.length]} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ChartContainer>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <ActivityLineChanges
+            additionsStats={projectAdditionsStats}
+            deletionsStats={projectDeletionsStats}
+            chartConfig={chartConfig}
+          />
         )}
 
         {/* Commits Display */}
@@ -647,144 +496,21 @@ export default function ActivityPage() {
             </CardContent>
           </Card>
         ) : commitsData?.commits.length ? (
-          <div className="space-y-6">
-            {Object.entries(
-              commitsData?.commits
-                .filter(commit => selectedContributor === 'all' || commit.author_name === selectedContributor)
-                .reduce((acc, commit) => {
-                  const commitDate = new Date(commit.created_at);
-                  const today = new Date();
-                  const yesterday = new Date();
-                  yesterday.setDate(yesterday.getDate() - 1);
-
-                  let dateLabel;
-                  if (
-                    commitDate.getDate() === today.getDate() &&
-                    commitDate.getMonth() === today.getMonth() &&
-                    commitDate.getFullYear() === today.getFullYear()
-                  ) {
-                    dateLabel = 'Today';
-                  } else if (
-                    commitDate.getDate() === yesterday.getDate() &&
-                    commitDate.getMonth() === yesterday.getMonth() &&
-                    commitDate.getFullYear() === yesterday.getFullYear()
-                  ) {
-                    dateLabel = 'Yesterday';
-                  } else {
-                    dateLabel = commitDate.toLocaleDateString('en-US', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric'
-                    });
-                  }
-
-                  if (!acc[dateLabel]) acc[dateLabel] = [];
-                  acc[dateLabel].push(commit);
-                  return acc;
-                }, {} as Record<string, Commit[]>) || {}
-            ).map(([date, dayCommits]) => (
-              <Card key={date}>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg">{date}</CardTitle>
-                  {(selectedContributor !== 'all' || selectedProject !== 'all') && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        const periodLabel = PERIOD_OPTIONS.find(opt => opt.value === period)?.label || 'Custom Period';
-                        const reportTitle = date === 'Today' || date === 'Yesterday' ? date : `${date} (${periodLabel})`;
-                        setSelectedDate(reportTitle);
-                        setShowReportModal(true);
-                        generateDailyReport(reportTitle, dayCommits);
-                      }}
-                    >
-                      Générer Rapport
-                    </Button>
-                  )}
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-muted">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/5">
-                            Project
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/5">
-                            Branch
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/4">
-                            Commit
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/6">
-                            Author
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/6">
-                            Time
-                          </th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider w-1/6">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {dayCommits.map((commit) => (
-                          <tr key={commit.id} className="hover:bg-muted/50">
-                            <td className="px-4 py-3">
-                              <div className="text-sm font-medium truncate max-w-xs">
-                                {commit.project_name}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center">
-                                <span className="text-sm text-muted-foreground truncate max-w-[150px]">
-                                  {commit.branch_name}
-                                </span>
-                                {commit.is_default_branch && (
-                                  <Badge variant="secondary" className="ml-2">
-                                    default
-                                  </Badge>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="text-sm text-muted-foreground truncate max-w-xs">
-                                {commit.title}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="text-sm text-muted-foreground truncate max-w-[150px]">
-                                {commit.author_name}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="text-sm text-muted-foreground">
-                                {new Date(commit.created_at).toLocaleString('en-US', {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <Button
-                                variant="link"
-                                onClick={() => setSelectedCommit({
-                                  projectId: commit.project_id.toString(),
-                                  commitId: commit.id
-                                })}
-                              >
-                                Details
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <ActivityCommits
+            commits={commitsData.commits}
+            selectedContributor={selectedContributor}
+            selectedProject={selectedProject}
+            period={period}
+            PERIOD_OPTIONS={PERIOD_OPTIONS}
+            onGenerateReport={(date, commits) => {
+              setSelectedDate(date);
+              setShowReportModal(true);
+              generateDailyReport(date, commits);
+            }}
+            onViewDetails={(projectId, commitId) => {
+              setSelectedCommit({ projectId, commitId });
+            }}
+          />
         ) : (
           <Card>
             <CardContent className="pt-6 text-center text-muted-foreground">
@@ -834,40 +560,15 @@ export default function ActivityPage() {
         </Dialog>
 
         {/* Report Modal */}
-        <Dialog open={showReportModal} onOpenChange={isSpeaking ? () => {} : setShowReportModal}>
-          <DialogContent className="max-w-3xl max-h-[80vh]">
-            <DialogHeader>
-              <DialogTitle>
-                Rapport de Développement - {selectedDate}
-                {reportContent && !isGeneratingReport && (
-                  <Button
-                    className="ml-4"
-                    size="sm"
-                    variant="outline"
-                    onClick={handleReadAloud}
-                    disabled={isSpeaking}
-                  >
-                    {isSpeaking ? 'Lecture en cours...' : '🔊 Lire à voix haute'}
-                  </Button>
-                )}
-              </DialogTitle>
-            </DialogHeader>
-            <ScrollArea className="mt-4 max-h-[60vh]">
-              {isGeneratingReport ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : (
-                <div
-                  className="prose dark:prose-invert max-w-none px-4"
-                  dangerouslySetInnerHTML={{
-                    __html: reportContent
-                  }}
-                />
-              )}
-            </ScrollArea>
-          </DialogContent>
-        </Dialog>
+        <ActivityReportDialog
+          isOpen={showReportModal}
+          onOpenChange={setShowReportModal}
+          selectedDate={selectedDate}
+          reportContent={reportContent}
+          isGeneratingReport={isGeneratingReport}
+          isSpeaking={isSpeaking}
+          onReadAloud={handleReadAloud}
+        />
       </div>
     </PageContainer>
   );
